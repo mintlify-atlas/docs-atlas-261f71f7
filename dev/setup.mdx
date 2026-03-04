@@ -1,0 +1,679 @@
+---
+title: Development Environment Setup
+description: Complete guide to setting up a local FacturaScripts development environment for plugin and extension development
+---
+
+## Prerequisites
+
+Before setting up your development environment, ensure your system meets these requirements:
+
+### System Requirements
+
+<CardGroup cols={2}>
+  <Card title="PHP" icon="php">
+    **Version**: 8.1 or higher
+    
+    Check version: `php -v`
+  </Card>
+  <Card title="Database" icon="database">
+    **MySQL** 5.7+ or **PostgreSQL** 9.6+
+    
+    Choose one based on your preference
+  </Card>
+  <Card title="Web Server" icon="server">
+    **Apache** 2.4+ or **Nginx** 1.18+
+    
+    With PHP-FPM support
+  </Card>
+  <Card title="Composer" icon="box">
+    **Latest stable version**
+    
+    For dependency management
+  </Card>
+</CardGroup>
+
+### Required PHP Extensions
+
+Verify these extensions are installed:
+
+```bash
+php -m | grep -E "curl|gd|intl|mbstring|pdo_mysql|xml|zip"
+```
+
+<AccordionGroup>
+  <Accordion title="Required Extensions List">
+    - **curl**: HTTP client for API requests
+    - **gd**: Image processing
+    - **intl**: Internationalization
+    - **mbstring**: Multibyte string handling
+    - **pdo_mysql** or **pdo_pgsql**: Database connectivity
+    - **xml**: XML parsing
+    - **zip**: ZIP file handling for plugins
+  </Accordion>
+  
+  <Accordion title="Installing Extensions (Ubuntu/Debian)">
+    ```bash
+    sudo apt-get update
+    sudo apt-get install php8.1-cli php8.1-curl php8.1-gd php8.1-intl \
+                         php8.1-mbstring php8.1-mysql php8.1-xml php8.1-zip
+    ```
+  </Accordion>
+  
+  <Accordion title="Installing Extensions (macOS with Homebrew)">
+    ```bash
+    brew install php@8.1
+    brew install composer
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Installation
+
+### Step 1: Clone the Repository
+
+Clone FacturaScripts from GitHub:
+
+```bash
+# Clone the repository
+git clone https://github.com/NeoRazorX/facturascripts.git
+cd facturascripts
+
+# Checkout the stable branch (recommended for development)
+git checkout stable
+```
+
+<Tip>
+  Use the `stable` branch for plugin development. The `master` branch contains the latest development code and may be unstable.
+</Tip>
+
+### Step 2: Install Dependencies
+
+Install PHP dependencies using Composer:
+
+```bash
+composer install
+```
+
+This will install:
+- Twig template engine
+- Symfony components
+- Testing frameworks
+- Other required libraries
+
+### Step 3: Configure the Web Server
+
+<Tabs>
+  <Tab title="Apache">
+    Create a virtual host configuration:
+    
+    ```apache
+    <VirtualHost *:80>
+        ServerName facturascripts.local
+        DocumentRoot /path/to/facturascripts
+        
+        <Directory /path/to/facturascripts>
+            Options Indexes FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+        
+        ErrorLog ${APACHE_LOG_DIR}/facturascripts-error.log
+        CustomLog ${APACHE_LOG_DIR}/facturascripts-access.log combined
+    </VirtualHost>
+    ```
+    
+    Enable required modules and restart:
+    
+    ```bash
+    sudo a2enmod rewrite
+    sudo systemctl restart apache2
+    ```
+    
+    Add to `/etc/hosts`:
+    ```
+    127.0.0.1 facturascripts.local
+    ```
+  </Tab>
+  
+  <Tab title="Nginx">
+    Create a server block:
+    
+    ```nginx
+    server {
+        listen 80;
+        server_name facturascripts.local;
+        root /path/to/facturascripts;
+        index index.php index.html;
+        
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+        
+        location ~ \.php$ {
+            fastcgi_pass unix:/var/run/php/php8.1-fpm.sock;
+            fastcgi_index index.php;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+        
+        location ~ /\.ht {
+            deny all;
+        }
+    }
+    ```
+    
+    Test configuration and restart:
+    
+    ```bash
+    sudo nginx -t
+    sudo systemctl restart nginx
+    ```
+    
+    Add to `/etc/hosts`:
+    ```
+    127.0.0.1 facturascripts.local
+    ```
+  </Tab>
+  
+  <Tab title="PHP Built-in Server">
+    For quick development (not for production):
+    
+    ```bash
+    php -S localhost:8000
+    ```
+    
+    Access at: `http://localhost:8000`
+    
+    <Warning>
+      The built-in server is single-threaded and should only be used for development/testing.
+    </Warning>
+  </Tab>
+</Tabs>
+
+### Step 4: Set Directory Permissions
+
+FacturaScripts needs write access to specific directories:
+
+```bash
+# Create necessary directories
+mkdir -p MyFiles Dinamic Plugins
+
+# Set permissions (adjust user/group for your system)
+chmod -R 775 MyFiles Dinamic Plugins
+chown -R www-data:www-data MyFiles Dinamic Plugins
+
+# Or for development (less secure, but easier):
+chmod -R 777 MyFiles Dinamic Plugins
+```
+
+### Step 5: Create Database
+
+Create a database for FacturaScripts:
+
+<Tabs>
+  <Tab title="MySQL">
+    ```sql
+    CREATE DATABASE facturascripts CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'fs_user'@'localhost' IDENTIFIED BY 'your_password';
+    GRANT ALL PRIVILEGES ON facturascripts.* TO 'fs_user'@'localhost';
+    FLUSH PRIVILEGES;
+    ```
+  </Tab>
+  
+  <Tab title="PostgreSQL">
+    ```sql
+    CREATE DATABASE facturascripts;
+    CREATE USER fs_user WITH PASSWORD 'your_password';
+    GRANT ALL PRIVILEGES ON DATABASE facturascripts TO fs_user;
+    ```
+  </Tab>
+</Tabs>
+
+### Step 6: Initial Setup
+
+Visit your FacturaScripts installation in a browser:
+
+```
+http://facturascripts.local
+```
+
+You'll see the installation wizard. Complete these steps:
+
+<Steps>
+  <Step title="Database Configuration">
+    - **Database Type**: MySQL or PostgreSQL
+    - **Host**: `localhost` (or `127.0.0.1`)
+    - **Port**: `3306` (MySQL) or `5432` (PostgreSQL)
+    - **Database Name**: `facturascripts`
+    - **Username**: `fs_user`
+    - **Password**: Your database password
+  </Step>
+  
+  <Step title="Admin Account">
+    - **Username**: Choose an admin username
+    - **Email**: Your email address
+    - **Password**: Secure password
+  </Step>
+  
+  <Step title="Company Information">
+    - **Company Name**: Your development company name
+    - **Tax ID**: Test tax ID (can be changed later)
+    - **Country**: Select your country
+  </Step>
+  
+  <Step title="Finish">
+    Click "Install" and wait for the process to complete.
+  </Step>
+</Steps>
+
+## Development Tools Setup
+
+### Code Editor Configuration
+
+<Tabs>
+  <Tab title="VS Code">
+    Recommended extensions:
+    
+    ```json
+    {
+      "recommendations": [
+        "bmewburn.vscode-intelephense-client",
+        "xdebug.php-debug",
+        "whatwedo.twig",
+        "editorconfig.editorconfig",
+        "recca0120.vscode-phpunit"
+      ]
+    }
+    ```
+    
+    Create `.vscode/settings.json`:
+    
+    ```json
+    {
+      "php.suggest.basic": false,
+      "intelephense.files.exclude": [
+        "**/node_modules/**",
+        "**/vendor/**",
+        "**/Dinamic/**"
+      ],
+      "files.associations": {
+        "*.twig": "twig"
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="PHPStorm">
+    1. Open FacturaScripts directory as a project
+    2. Configure PHP interpreter:
+       - Settings → PHP → CLI Interpreter
+       - Add your PHP 8.1+ installation
+    3. Enable Composer:
+       - Settings → PHP → Composer
+       - Point to `composer.json`
+    4. Configure Xdebug:
+       - Settings → PHP → Debug
+       - Set port to 9003
+    5. Mark directories:
+       - Right-click `Dinamic` → Mark Directory as → Excluded
+       - Right-click `vendor` → Mark Directory as → Excluded
+  </Tab>
+</Tabs>
+
+### Xdebug Setup (Optional but Recommended)
+
+Install Xdebug for debugging:
+
+```bash
+# Install Xdebug
+sudo apt-get install php8.1-xdebug
+
+# Or with PECL
+sudo pecl install xdebug
+```
+
+Configure Xdebug in `php.ini` or create `/etc/php/8.1/mods-available/xdebug.ini`:
+
+```ini
+zend_extension=xdebug.so
+xdebug.mode=debug
+xdebug.start_with_request=yes
+xdebug.client_port=9003
+xdebug.client_host=localhost
+```
+
+Restart your web server:
+
+```bash
+sudo systemctl restart apache2
+# or
+sudo systemctl restart php8.1-fpm
+```
+
+### Git Configuration
+
+Set up Git for version control:
+
+```bash
+# Configure Git
+git config --global user.name "Your Name"
+git config --global user.email "your.email@example.com"
+
+# Create .gitignore for your plugin
+cat > .gitignore << EOF
+/MyFiles/
+/Dinamic/
+/vendor/
+/node_modules/
+config.php
+.env
+*.log
+EOF
+```
+
+## Creating Your First Plugin
+
+### Step 1: Create Plugin Directory
+
+```bash
+# Create plugin structure
+mkdir -p Plugins/MyFirstPlugin/{Controller,Model,View,Assets}
+cd Plugins/MyFirstPlugin
+```
+
+### Step 2: Create Plugin Metadata
+
+Create `facturascripts.ini`:
+
+```ini
+name = "MyFirstPlugin"
+version = 1.0
+min_version = 2024.1
+description = "My first FacturaScripts plugin"
+author = "Your Name"
+```
+
+### Step 3: Create Initialization File
+
+Create `Init.php`:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\MyFirstPlugin;
+
+use FacturaScripts\Core\Base\InitClass;
+
+class Init extends InitClass
+{
+    public function init(): void
+    {
+        // Plugin initialization code
+    }
+    
+    public function update(): void
+    {
+        // Update logic when plugin version changes
+    }
+}
+```
+
+### Step 4: Create a Simple Controller
+
+Create `Controller/HelloWorld.php`:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\MyFirstPlugin\Controller;
+
+use FacturaScripts\Core\Base\Controller;
+
+class HelloWorld extends Controller
+{
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'Hello World';
+        $data['icon'] = 'fa-solid fa-hand-wave';
+        $data['menu'] = 'admin';
+        return $data;
+    }
+    
+    public function privateCore(&$response, $user, $permissions): void
+    {
+        parent::privateCore($response, $user, $permissions);
+        // Your controller logic here
+    }
+}
+```
+
+### Step 5: Create a View Template
+
+Create `View/HelloWorld.html.twig`:
+
+```twig
+{% extends "Master/MenuTemplate.html.twig" %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>Hello World!</h1>
+            <p>Welcome to your first FacturaScripts plugin.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+```
+
+### Step 6: Activate Your Plugin
+
+<Steps>
+  <Step title="Access Plugin Manager">
+    Navigate to: **Admin → Plugins** (or `/AdminPlugins`)
+  </Step>
+  
+  <Step title="Find Your Plugin">
+    Your plugin "MyFirstPlugin" should appear in the list
+  </Step>
+  
+  <Step title="Enable Plugin">
+    Click the toggle or "Enable" button
+  </Step>
+  
+  <Step title="Wait for Deployment">
+    FacturaScripts will:
+    - Merge your plugin code into `Dinamic/`
+    - Rebuild routes
+    - Update database schema
+  </Step>
+  
+  <Step title="Access Your Controller">
+    Visit: `http://facturascripts.local/HelloWorld`
+  </Step>
+</Steps>
+
+<Tip>
+  After enabling your plugin, you'll find the merged code in `Dinamic/Controller/HelloWorld.php`. This is the actual file that gets executed.
+</Tip>
+
+## Development Workflow
+
+### Making Changes
+
+When developing plugins:
+
+<Steps>
+  <Step title="Edit Source Files">
+    Make changes in `Plugins/YourPlugin/` directory
+  </Step>
+  
+  <Step title="Redeploy">
+    Go to **Admin → Plugins** and click "Deploy" or "Rebuild"
+  </Step>
+  
+  <Step title="Test Changes">
+    Changes are merged into `Dinamic/` and immediately active
+  </Step>
+  
+  <Step title="Debug Issues">
+    Check logs in `MyFiles/` directory
+  </Step>
+</Steps>
+
+### Using the Command Line
+
+FacturaScripts provides CLI tools:
+
+```bash
+# Rebuild routes
+php index.php rebuildRoutes
+
+# Update database
+php index.php updateDB
+
+# Clear cache
+php index.php clearCache
+
+# Run cron tasks
+php index.php cron
+```
+
+### Debugging Tips
+
+<AccordionGroup>
+  <Accordion title="Enable Debug Mode">
+    Edit `config.php` (create if it doesn't exist):
+    
+    ```php
+    <?php
+    define('FS_DEBUG', true);
+    ```
+    
+    This enables verbose error messages.
+  </Accordion>
+  
+  <Accordion title="Check Logs">
+    Logs are stored in:
+    - Application logs: `MyFiles/error.log`
+    - Web server logs: `/var/log/apache2/` or `/var/log/nginx/`
+    - PHP errors: Check `php.ini` for `error_log` location
+  </Accordion>
+  
+  <Accordion title="Database Queries">
+    Enable query logging in `config.php`:
+    
+    ```php
+    define('FS_DB_LOG', true);
+    ```
+    
+    Queries are logged to `MyFiles/database.log`
+  </Accordion>
+  
+  <Accordion title="Use var_dump()">
+    For quick debugging:
+    
+    ```php
+    var_dump($variable);
+    exit; // Stop execution
+    ```
+    
+    Or use FacturaScripts logger:
+    
+    ```php
+    use FacturaScripts\Core\Tools;
+    
+    Tools::log()->debug('Variable value: ' . print_r($variable, true));
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Testing
+
+### PHPUnit Setup
+
+FacturaScripts includes PHPUnit for testing:
+
+```bash
+# Run all tests
+./vendor/bin/phpunit
+
+# Run specific test
+./vendor/bin/phpunit tests/Core/KernelTest.php
+
+# Run plugin tests
+./vendor/bin/phpunit -c phpunit-plugins.xml
+```
+
+### Writing Tests
+
+Create `Test/` directory in your plugin:
+
+```php
+<?php
+namespace FacturaScripts\Test\Plugins\MyFirstPlugin;
+
+use PHPUnit\Framework\TestCase;
+
+class MyTest extends TestCase
+{
+    public function testExample(): void
+    {
+        $this->assertTrue(true);
+    }
+}
+```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="White Screen / 500 Error">
+    - Check PHP error logs
+    - Verify file permissions (775 or 777 for development)
+    - Ensure all required PHP extensions are installed
+    - Check `.htaccess` file exists (copy from `htaccess-sample`)
+  </Accordion>
+  
+  <Accordion title="Plugin Not Appearing">
+    - Verify `facturascripts.ini` exists and is valid
+    - Check plugin directory name matches `name` in INI file
+    - Ensure `Plugins/` directory has correct permissions
+    - Try refreshing the plugin list
+  </Accordion>
+  
+  <Accordion title="Changes Not Visible">
+    - Click "Deploy" in Plugin Manager to rebuild `Dinamic/`
+    - Clear browser cache (Ctrl+Shift+R)
+    - Check if you're editing the right file (not `Dinamic/`)
+    - Verify plugin is enabled
+  </Accordion>
+  
+  <Accordion title="Database Connection Failed">
+    - Verify database credentials in installer or `config.php`
+    - Check database server is running
+    - Test connection with `mysql -u fs_user -p` or `psql -U fs_user`
+    - Ensure user has correct privileges
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+Now that your development environment is ready:
+
+<CardGroup cols={2}>
+  <Card title="Creating Plugins" icon="puzzle-piece" href="/dev/plugins/creating-plugins">
+    Learn to build complete plugins with models, controllers, and views.
+  </Card>
+  <Card title="Controllers" icon="gamepad" href="/dev/controllers">
+    Master controller development and request handling.
+  </Card>
+  <Card title="Models & Database" icon="database" href="/dev/models">
+    Work with the ORM and database layer.
+  </Card>
+  <Card title="Best Practices" icon="star" href="/dev/best-practices">
+    Follow coding standards and best practices.
+  </Card>
+</CardGroup>
+
+<Tip>
+  Join the FacturaScripts community on GitHub for help, discussions, and to share your plugins!
+</Tip>

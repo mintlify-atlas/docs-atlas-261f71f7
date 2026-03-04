@@ -1,0 +1,635 @@
+---
+title: Testing with PHPUnit
+description: Write and run automated tests for FacturaScripts
+---
+
+## Overview
+
+FacturaScripts uses PHPUnit for automated testing. The test suite covers core functionality, models, controllers, and utilities.
+
+## Test Structure
+
+Tests are organized in the `Test/` directory:
+
+```
+Test/
+├── bootstrap.php           # Test initialization
+├── Core/                   # Core tests
+│   ├── CacheTest.php
+│   ├── DbQueryTest.php
+│   ├── TranslatorTest.php
+│   ├── Model/              # Model tests
+│   │   ├── ClienteTest.php
+│   │   ├── ProductoTest.php
+│   │   └── ...
+│   ├── Controller/         # Controller tests
+│   ├── Lib/                # Library tests
+│   └── Translation/        # Translation tests
+├── Traits/                 # Reusable test traits
+│   └── LogErrorsTrait.php
+└── __files/                # Test fixtures
+```
+
+## PHPUnit Configuration
+
+The `phpunit.xml` file configures the test runner:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+        bootstrap="Test/bootstrap.php"
+        colors="true"
+        convertNoticesToExceptions="true"
+        convertWarningsToExceptions="true"
+        stopOnError="true"
+        stopOnFailure="true">
+    <testsuites>
+        <testsuite name="Core test suite">
+            <directory suffix="Test.php" phpVersion="8.0" phpVersionOperator=">=">
+                Test/Core/
+            </directory>
+        </testsuite>
+    </testsuites>
+</phpunit>
+```
+
+## Running Tests
+
+### Run All Tests
+
+```bash
+vendor/bin/phpunit
+```
+
+### Run Specific Test Suite
+
+```bash
+# Run only model tests
+vendor/bin/phpunit Test/Core/Model/
+
+# Run specific test class
+vendor/bin/phpunit Test/Core/DbQueryTest.php
+
+# Run specific test method
+vendor/bin/phpunit --filter testWhere Test/Core/DbQueryTest.php
+```
+
+### Run with Verbose Output
+
+```bash
+vendor/bin/phpunit --testdox
+```
+
+## Writing Tests
+
+### Basic Test Structure
+
+```php
+<?php
+namespace FacturaScripts\Test\Core;
+
+use PHPUnit\Framework\TestCase;
+
+final class MyTest extends TestCase
+{
+    public function testSomething(): void
+    {
+        // Arrange
+        $value = 10;
+        
+        // Act
+        $result = $value * 2;
+        
+        // Assert
+        $this->assertEquals(20, $result);
+    }
+}
+```
+
+### Test Database Operations
+
+**Test/Core/DbQueryTest.php** (excerpt):
+
+```php
+<?php
+namespace FacturaScripts\Test\Core;
+
+use FacturaScripts\Core\Base\DataBase;
+use FacturaScripts\Core\DbQuery;
+use FacturaScripts\Core\Where;
+use PHPUnit\Framework\TestCase;
+
+final class DbQueryTest extends TestCase
+{
+    private $db;
+    
+    public function testTable(): void
+    {
+        // Skip test if table doesn't exist
+        if (false === $this->db()->tableExists('series')) {
+            $this->markTestSkipped('Table series does not exist.');
+        }
+        
+        $query = DbQuery::table('series');
+        
+        $sql = 'SELECT * FROM ' . $this->db()->escapeColumn('series');
+        $this->assertEquals($sql, $query->sql());
+        
+        $data = $this->db()->select($sql);
+        $this->assertEquals($data, $query->get());
+    }
+    
+    public function testWhere(): void
+    {
+        if (false === $this->db()->tableExists('clientes')) {
+            $this->markTestSkipped('Table clientes does not exist.');
+        }
+        
+        $query = DbQuery::table('clientes')
+            ->select('codcliente, nombre')
+            ->where([
+                Where::eq('codcliente', 'test'),
+                Where::gt('riesgomax', 1000)
+            ]);
+        
+        $sql = 'SELECT ' . $this->db()->escapeColumn('codcliente')
+            . ', ' . $this->db()->escapeColumn('nombre')
+            . ' FROM ' . $this->db()->escapeColumn('clientes')
+            . ' WHERE ' . $this->db()->escapeColumn('codcliente') . ' = ' . $this->db()->var2str('test')
+            . ' AND ' . $this->db()->escapeColumn('riesgomax') . ' > ' . $this->db()->var2str(1000);
+        $this->assertEquals($sql, $query->sql());
+    }
+    
+    private function db(): DataBase
+    {
+        if ($this->db === null) {
+            $this->db = new DataBase();
+            $this->db->connect();
+        }
+        return $this->db;
+    }
+}
+```
+
+### Test Models
+
+```php
+<?php
+namespace FacturaScripts\Test\Core\Model;
+
+use FacturaScripts\Core\Model\Cliente;
+use FacturaScripts\Test\Traits\LogErrorsTrait;
+use PHPUnit\Framework\TestCase;
+
+final class ClienteTest extends TestCase
+{
+    use LogErrorsTrait;
+    
+    public function testCreate(): void
+    {
+        $cliente = new Cliente();
+        $cliente->codcliente = 'TEST001';
+        $cliente->nombre = 'Test Customer';
+        $cliente->cifnif = '12345678A';
+        
+        $this->assertTrue($cliente->save(), 'Failed to save customer');
+        $this->assertNotEmpty($cliente->primaryColumnValue());
+    }
+    
+    public function testLoad(): void
+    {
+        $cliente = new Cliente();
+        $this->assertTrue(
+            $cliente->loadFromCode('TEST001'),
+            'Failed to load customer'
+        );
+        
+        $this->assertEquals('Test Customer', $cliente->nombre);
+        $this->assertEquals('12345678A', $cliente->cifnif);
+    }
+    
+    public function testUpdate(): void
+    {
+        $cliente = new Cliente();
+        $cliente->loadFromCode('TEST001');
+        
+        $cliente->nombre = 'Updated Name';
+        $this->assertTrue($cliente->save(), 'Failed to update customer');
+        
+        // Reload and verify
+        $reloaded = new Cliente();
+        $reloaded->loadFromCode('TEST001');
+        $this->assertEquals('Updated Name', $reloaded->nombre);
+    }
+    
+    public function testDelete(): void
+    {
+        $cliente = new Cliente();
+        $cliente->loadFromCode('TEST001');
+        
+        $this->assertTrue($cliente->delete(), 'Failed to delete customer');
+        
+        // Verify deletion
+        $deleted = new Cliente();
+        $this->assertFalse(
+            $deleted->loadFromCode('TEST001'),
+            'Customer still exists after deletion'
+        );
+    }
+    
+    public function testValidation(): void
+    {
+        $cliente = new Cliente();
+        $cliente->codcliente = ''; // Invalid: empty code
+        
+        $this->assertFalse(
+            $cliente->test(),
+            'Validation should fail for empty code'
+        );
+    }
+}
+```
+
+### Test Translations
+
+**Test/Core/TranslatorTest.php** (excerpt):
+
+```php
+<?php
+namespace FacturaScripts\Test\Core;
+
+use FacturaScripts\Core\Tools;
+use FacturaScripts\Core\Translator;
+use PHPUnit\Framework\TestCase;
+
+final class TranslatorTest extends TestCase
+{
+    public function testDefaultTrans(): void
+    {
+        $translator = new Translator();
+        $this->assertEquals(FS_LANG, $translator->getLang());
+    }
+    
+    public function testSpanishTranslations(): void
+    {
+        $translator = new Translator('es_ES');
+        
+        // Check language is in list
+        $this->assertArrayHasKey('es_ES', $translator->getAvailableLanguages());
+        
+        // Check language is selected
+        $this->assertEquals('es_ES', $translator->getLang());
+        
+        // Get translations
+        $accept = $translator->trans('accept');
+        $accepted = $translator->trans('accepted');
+        $accountBadParent999 = $translator->trans('account-bad-parent', [
+            '%codcuenta%' => '999'
+        ]);
+        
+        // Read translations from file
+        $file = Tools::folder('Core', 'Translation', 'es_ES.json');
+        $data = file_get_contents($file);
+        $json = json_decode($data, true);
+        
+        // Verify translations are correct
+        $this->assertEquals($json['accept'], $accept);
+        $this->assertEquals($json['accepted'], $accepted);
+        $this->assertEquals(
+            str_replace('%codcuenta%', '999', $json['account-bad-parent']),
+            $accountBadParent999
+        );
+    }
+    
+    public function testMissingTranslations(): void
+    {
+        $translator = new Translator('es_ES');
+        
+        // Translating non-existent key returns the key
+        $this->assertEquals('yolo-test-123', $translator->trans('yolo-test-123'));
+        
+        // And adds it to missing strings list
+        $this->assertContains('yolo-test-123', $translator->getMissingStrings());
+    }
+}
+```
+
+## Test Traits
+
+Reusable test functionality:
+
+**Test/Traits/LogErrorsTrait.php:**
+
+```php
+<?php
+namespace FacturaScripts\Test\Traits;
+
+use FacturaScripts\Core\Tools;
+
+trait LogErrorsTrait
+{
+    /**
+     * Log errors to console during tests
+     */
+    protected function logErrors(): void
+    {
+        $errors = Tools::log()->read('', ['critical', 'error']);
+        
+        foreach ($errors as $error) {
+            echo "\n[{$error['level']}] {$error['message']}";
+        }
+    }
+    
+    protected function tearDown(): void
+    {
+        // Automatically log errors after each test
+        $this->logErrors();
+    }
+}
+```
+
+Usage:
+
+```php
+class MyTest extends TestCase
+{
+    use LogErrorsTrait;
+    
+    public function testSomething(): void
+    {
+        // Test code
+        // Errors automatically logged after test
+    }
+}
+```
+
+## Testing Best Practices
+
+<AccordionGroup>
+  <Accordion title="Arrange-Act-Assert pattern">
+    Structure tests clearly:
+    
+    ```php
+    public function testCalculation(): void
+    {
+        // Arrange: Set up test data
+        $price = 100;
+        $taxRate = 0.21;
+        
+        // Act: Execute the operation
+        $total = $price * (1 + $taxRate);
+        
+        // Assert: Verify the result
+        $this->assertEquals(121, $total);
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Test one thing at a time">
+    Each test should verify a single behavior:
+    
+    ```php
+    // Good: Separate tests
+    public function testCreateCustomer(): void { /* ... */ }
+    public function testUpdateCustomer(): void { /* ... */ }
+    public function testDeleteCustomer(): void { /* ... */ }
+    
+    // Bad: Testing everything at once
+    public function testCustomerOperations(): void
+    {
+        // create, update, delete all in one test
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use descriptive test names">
+    Test names should describe what is being tested:
+    
+    ```php
+    // Good
+    public function testCalculatesDiscountForVIPCustomers(): void
+    public function testRejectsNegativePrices(): void
+    public function testSendsEmailWhenOrderIsCompleted(): void
+    
+    // Bad
+    public function test1(): void
+    public function testDiscount(): void
+    public function testEmail(): void
+    ```
+  </Accordion>
+
+  <Accordion title="Clean up test data">
+    Remove test data after tests:
+    
+    ```php
+    private $testCliente;
+    
+    protected function setUp(): void
+    {
+        // Create test data
+        $this->testCliente = new Cliente();
+        $this->testCliente->codcliente = 'TEST_' . uniqid();
+        $this->testCliente->save();
+    }
+    
+    protected function tearDown(): void
+    {
+        // Clean up
+        if ($this->testCliente->exists()) {
+            $this->testCliente->delete();
+        }
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Skip tests when dependencies are missing">
+    Gracefully handle missing tables or configuration:
+    
+    ```php
+    public function testProductQuery(): void
+    {
+        if (!$this->db()->tableExists('productos')) {
+            $this->markTestSkipped('Table productos does not exist.');
+        }
+        
+        // Test code
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use data providers for multiple scenarios">
+    Test multiple inputs efficiently:
+    
+    ```php
+    /**
+     * @dataProvider priceProvider
+     */
+    public function testPriceCalculation($price, $tax, $expected): void
+    {
+        $result = $this->calculator->calculate($price, $tax);
+        $this->assertEquals($expected, $result);
+    }
+    
+    public function priceProvider(): array
+    {
+        return [
+            [100, 0.21, 121],
+            [200, 0.10, 220],
+            [50, 0.05, 52.5]
+        ];
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Assertions
+
+### Equality Assertions
+
+```php
+// Exact equality
+$this->assertEquals(10, $result);
+$this->assertNotEquals(5, $result);
+
+// Type-strict equality
+$this->assertSame(10, $result);
+$this->assertNotSame('10', $result);
+
+// Floating point comparison
+$this->assertEqualsWithDelta(10.5, $result, 0.01);
+```
+
+### Boolean Assertions
+
+```php
+$this->assertTrue($condition);
+$this->assertFalse($condition);
+$this->assertNull($value);
+$this->assertNotNull($value);
+```
+
+### Array Assertions
+
+```php
+$this->assertCount(3, $array);
+$this->assertEmpty($array);
+$this->assertNotEmpty($array);
+$this->assertArrayHasKey('key', $array);
+$this->assertContains('value', $array);
+```
+
+### String Assertions
+
+```php
+$this->assertStringContainsString('hello', $text);
+$this->assertStringStartsWith('Hello', $text);
+$this->assertStringEndsWith('world', $text);
+$this->assertMatchesRegularExpression('/^\d+$/', $text);
+```
+
+### Exception Assertions
+
+```php
+$this->expectException(InvalidArgumentException::class);
+$this->expectExceptionMessage('Invalid value');
+$this->calculator->divide(10, 0);
+```
+
+## Testing Plugin Code
+
+Create tests for your plugin:
+
+**Plugins/MyPlugin/Test/MyFeatureTest.php:**
+
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Test;
+
+use FacturaScripts\Plugins\MyPlugin\Model\CustomModel;
+use PHPUnit\Framework\TestCase;
+
+class MyFeatureTest extends TestCase
+{
+    public function testCustomFeature(): void
+    {
+        $model = new CustomModel();
+        $model->name = 'Test';
+        
+        $this->assertTrue($model->save());
+        $this->assertNotEmpty($model->id);
+    }
+}
+```
+
+Run plugin tests:
+
+```bash
+vendor/bin/phpunit Plugins/MyPlugin/Test/
+```
+
+## Continuous Integration
+
+Integrate tests into your CI/CD pipeline:
+
+**.github/workflows/tests.yml:**
+
+```yaml
+name: Tests
+
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: password
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+    
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          extensions: mbstring, mysql
+      
+      - name: Install dependencies
+        run: composer install
+      
+      - name: Run tests
+        run: vendor/bin/phpunit
+```
+
+## Reference
+
+### PHPUnit Commands
+
+| Command | Description |
+|---------|-------------|
+| `phpunit` | Run all tests |
+| `phpunit --filter testName` | Run specific test |
+| `phpunit --testdox` | Verbose output |
+| `phpunit --coverage-html coverage/` | Generate coverage report |
+| `phpunit --stop-on-failure` | Stop on first failure |
+
+### Common Assertions
+
+| Assertion | Description |
+|-----------|-------------|
+| `assertEquals($expected, $actual)` | Values are equal |
+| `assertTrue($condition)` | Condition is true |
+| `assertFalse($condition)` | Condition is false |
+| `assertNull($value)` | Value is null |
+| `assertEmpty($value)` | Value is empty |
+| `assertCount($n, $array)` | Array has n items |
+| `assertArrayHasKey($key, $array)` | Array has key |
+| `assertContains($needle, $haystack)` | Array contains value |
+| `assertStringContainsString($needle, $haystack)` | String contains substring |
+| `expectException($class)` | Exception will be thrown |

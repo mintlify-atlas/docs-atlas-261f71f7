@@ -1,0 +1,663 @@
+---
+title: CRM (Customer Relationship Management)
+description: Manage customers, suppliers, and contacts with integrated address and communication tracking
+icon: users
+---
+
+FacturaScripts includes comprehensive CRM functionality for managing customers, suppliers, and contacts with full address management, payment terms, and fiscal information.
+
+## Core Entities
+
+<CardGroup cols={3}>
+  <Card title="Customers" icon="user">
+    Customer master data with payment terms and credit limits
+  </Card>
+  <Card title="Suppliers" icon="truck">
+    Supplier management with purchase terms
+  </Card>
+  <Card title="Contacts" icon="address-card">
+    Addresses and contact points for customers and suppliers
+  </Card>
+</CardGroup>
+
+## Customers (Clientes)
+
+Customers represent the entities that purchase from your business.
+
+### Customer Structure
+
+Located at `Core/Model/Cliente.php`:
+
+```php
+class Cliente extends ModelClass
+{
+    use EmailAndPhonesTrait;
+    use FiscalNumberTrait;
+    use GravatarTrait;
+    
+    const SPECIAL_ACCOUNT = 'CLIENT';
+    
+    public $codcliente;        // Customer code (1-10 chars)
+    public $nombre;            // Name
+    public $razonsocial;       // Company name
+    
+    // Contact information
+    public $email;             // Email address
+    public $telefono1;         // Primary phone
+    public $telefono2;         // Secondary phone
+    public $fax;               // Fax number
+    public $web;               // Website
+    
+    // Fiscal information
+    public $cifnif;            // Tax ID number
+    public $tipoidfiscal;      // Tax ID type
+    public $personafisica;     // Individual person flag
+    public $regimeniva;        // VAT regime
+    public $excepcioniva;      // VAT exception
+    
+    // Payment terms
+    public $codpago;           // Payment method code
+    public $diaspago;          // Preferred payment days
+    public $codretencion;      // Withholding code
+    
+    // Credit control
+    public $riesgoalcanzado;   // Current credit used
+    public $riesgomax;         // Credit limit
+    
+    // Configuration
+    public $codserie;          // Default document series
+    public $codtarifa;         // Price list code
+    public $codagente;         // Sales agent code
+    public $codgrupo;          // Customer group code
+    
+    // Accounting
+    public $codsubcuenta;      // Account code
+    
+    // Addresses
+    public $idcontactofact;    // Billing address ID
+    public $idcontactoenv;     // Shipping address ID
+    
+    // Status
+    public $debaja;            // Inactive flag
+    public $fechaalta;         // Registration date
+    public $fechabaja;         // Deactivation date
+    
+    // Localization
+    public $langcode;          // Language code
+    
+    // Related entities
+    public $codproveedor;      // Also a supplier?
+    public $observaciones;     // Notes
+}
+```
+
+### Key Features
+
+#### Multiple Addresses
+
+```php
+public function getAddresses(): array
+{
+    // Returns all addresses (Contacto) for this customer
+}
+
+public function getDefaultAddress(string $type = 'billing'): Contacto
+{
+    // Returns billing or shipping address
+    // $type: 'billing' or 'shipping'
+    $id = $type === 'shipping' ? 
+        $this->idcontactoenv : 
+        $this->idcontactofact;
+}
+```
+
+#### Bank Accounts
+
+```php
+public function getBankAccounts(): array
+{
+    // Returns all bank accounts for direct debit
+    // Used for payment receipts
+}
+```
+
+#### Payment Terms
+
+```php
+public function getPaymentDays(): array
+{
+    // Returns array of preferred payment days
+    // Example: [5, 20] for 5th and 20th of month
+    $days = [];
+    foreach (explode(',', $this->diaspago) as $str) {
+        if (is_numeric(trim($str))) {
+            $days[] = trim($str);
+        }
+    }
+    return $days;
+}
+```
+
+#### Accounting Integration
+
+```php
+public function getSubcuenta(string $codejercicio, bool $crear): Subcuenta
+{
+    // Gets or creates subaccount for this customer
+    // In specified fiscal exercise
+    // Uses special account 'CLIENT'
+}
+
+protected function createSubcuenta(string $codejercicio): Subcuenta
+{
+    // Automatically creates subaccount
+    // Uses free code from CLIENT special account
+    // Saves code to customer record
+}
+```
+
+#### VAT Validation
+
+```php
+public function checkVies(bool $msg = true): bool
+{
+    // Validates EU VAT number via VIES service
+    // Returns true if valid
+    $codiso = Paises::get($this->getDefaultAddress()->codpais)->codiso;
+    return Vies::check($this->cifnif, $codiso, $msg) === 1;
+}
+```
+
+#### Customer Groups
+
+```php
+public function getGroup(): GrupoClientes
+{
+    // Returns customer group
+    // Groups share settings like payment terms
+    // Can inherit subaccount from group
+}
+```
+
+#### Tax Withholding
+
+```php
+public function irpf(): float
+{
+    // Returns withholding percentage
+    // Used in invoices
+    if (empty($this->codretencion)) {
+        return 0.0;
+    }
+    
+    $retention = new Retencion();
+    if ($retention->load($this->codretencion)) {
+        return $retention->porcentaje;
+    }
+    
+    return 0.0;
+}
+```
+
+### Advanced Search
+
+```php
+public function codeModelSearch(string $query, string $fieldCode = '', 
+                                array $where = []): array
+{
+    // Searches across multiple fields:
+    // - cifnif, codcliente, email, nombre
+    // - observaciones, razonsocial
+    // - telefono1, telefono2
+    // Excludes inactive customers (fechabaja IS NULL)
+}
+```
+
+## Suppliers (Proveedores)
+
+Suppliers represent the entities you purchase from.
+
+### Supplier Structure
+
+Located at `Core/Model/Proveedor.php`:
+
+```php
+class Proveedor extends ModelClass
+{
+    use EmailAndPhonesTrait;
+    use FiscalNumberTrait;
+    use GravatarTrait;
+    
+    const SPECIAL_ACCOUNT = 'PROVEE';
+    const SPECIAL_CREDITOR_ACCOUNT = 'ACREED';
+    
+    public $codproveedor;      // Supplier code (1-10 chars)
+    public $nombre;            // Name
+    public $razonsocial;       // Company name
+    
+    // Contact information
+    public $email;
+    public $telefono1;
+    public $telefono2;
+    public $fax;
+    public $web;
+    
+    // Fiscal information
+    public $cifnif;
+    public $tipoidfiscal;
+    public $personafisica;
+    public $regimeniva;
+    
+    // Purchase configuration
+    public $codpago;           // Payment method
+    public $codserie;          // Document series
+    public $codimpuestoportes; // Shipping tax code
+    public $codretencion;      // Withholding code
+    
+    // Accounting
+    public $codsubcuenta;      // Account code
+    public $acreedor;          // Creditor flag (uses ACREED account)
+    
+    // Addresses
+    public $idcontacto;        // Main address ID
+    
+    // Status
+    public $debaja;
+    public $fechaalta;
+    public $fechabaja;
+    
+    // Localization
+    public $langcode;
+    
+    // Related entities
+    public $codcliente;        // Also a customer?
+    public $observaciones;
+}
+```
+
+### Supplier vs Creditor
+
+```php
+public function getSubcuenta(string $codejercicio, bool $crear): Subcuenta
+{
+    $specialAccount = $this->acreedor ?
+        static::SPECIAL_CREDITOR_ACCOUNT :  // ACREED
+        static::SPECIAL_ACCOUNT;             // PROVEE
+    
+    // Creates subaccount using appropriate special account
+}
+```
+
+**Regular Suppliers (PROVEE):**
+- Normal purchase transactions
+- Standard payment terms
+
+**Creditors (ACREED):**
+- Short-term creditors
+- Different accounting treatment
+- Used for non-standard payables
+
+### Supplier Features
+
+Suppliers share similar functionality with customers:
+
+```php
+public function getAddresses(): array;
+public function getBankAccounts(): array;
+public function getDefaultAddress(): Contacto;
+public function checkVies(bool $msg = true): bool;
+public function irpf(): float;
+```
+
+## Contacts (Contactos)
+
+Contacts represent physical addresses and contact points.
+
+### Contact Structure
+
+Located at `Core/Model/Contacto.php`:
+
+```php
+class Contacto extends ModelClass
+{
+    use EmailAndPhonesTrait;
+    use FiscalNumberTrait;
+    use GravatarTrait;
+    
+    public $idcontacto;        // Primary key
+    
+    // Personal information
+    public $nombre;            // First name
+    public $apellidos;         // Last name
+    public $descripcion;       // Description/label
+    public $cargo;             // Job title
+    
+    // Company
+    public $empresa;           // Company name
+    
+    // Contact information
+    public $email;
+    public $telefono1;
+    public $telefono2;
+    public $fax;               // Fax (deprecated)
+    public $web;
+    
+    // Address
+    public $direccion;         // Street address
+    public $apartado;          // P.O. Box
+    public $codpostal;         // Postal code
+    public $ciudad;            // City
+    public $provincia;         // Province/state
+    public $codpais;           // Country code
+    
+    // Fiscal information
+    public $cifnif;
+    public $tipoidfiscal;
+    public $personafisica;
+    
+    // Relationships
+    public $codcliente;        // Customer code
+    public $codproveedor;      // Supplier code
+    public $codagente;         // Agent code
+    
+    // Privacy
+    public $aceptaprivacidad;  // Privacy policy accepted
+    public $admitemarketing;   // Marketing consent
+    public $verificado;        // Email verified
+    
+    // Dates
+    public $fechaalta;         // Creation date
+    
+    // Localization
+    public $langcode;
+    
+    // Notes
+    public $observaciones;
+}
+```
+
+### Contact Features
+
+#### Full Name
+
+```php
+public function fullName(): string
+{
+    return $this->nombre . ' ' . $this->apellidos;
+}
+```
+
+#### Country Name
+
+```php
+public function country(): string
+{
+    return Paises::get($this->codpais)->nombre ?? $this->codpais;
+}
+```
+
+#### Customer/Supplier Creation
+
+```php
+public function getCustomer(bool $create = true): Cliente
+{
+    // Gets existing customer or creates new one
+    // Copies all relevant data from contact
+    // Links contact as billing address
+}
+
+public function getSupplier(bool $create = true): Proveedor
+{
+    // Gets existing supplier or creates new one
+    // Copies all relevant data from contact
+}
+```
+
+#### VAT Validation
+
+```php
+public function checkVies(bool $msg = true): bool
+{
+    $codiso = Paises::get($this->codpais)->codiso ?? '';
+    return Vies::check($this->cifnif ?? '', $codiso, $msg) === 1;
+}
+```
+
+#### Advanced Search
+
+```php
+public function codeModelSearch(string $query, string $fieldCode = '', 
+                                array $where = []): array
+{
+    // Searches across:
+    // - apellidos, cifnif, descripcion
+    // - email, empresa, nombre
+    // - observaciones, telefono1, telefono2
+}
+```
+
+### Contact as Address
+
+Contacts serve as addresses for customers and suppliers:
+
+- **Billing addresses**: Used for invoices
+- **Shipping addresses**: Used for deliveries
+- **Multiple addresses**: Each customer/supplier can have many
+- **Default addresses**: Set via `idcontactofact` and `idcontactoenv`
+
+## Common Traits
+
+All CRM entities use shared traits:
+
+### EmailAndPhonesTrait
+
+Provides:
+- `$email`: Email address
+- `$telefono1`: Primary phone
+- `$telefono2`: Secondary phone
+- `testEmailAndPhones()`: Validation
+
+### FiscalNumberTrait
+
+Provides:
+- `$cifnif`: Tax ID number
+- `$tipoidfiscal`: Tax ID type
+- `testFiscalNumber()`: Validation
+
+### GravatarTrait
+
+Provides:
+- Gravatar image integration
+- Email-based avatar display
+
+## Validation
+
+### Customer Validation
+
+```php
+public function test(): bool
+{
+    // Name is required
+    if (empty($this->nombre)) {
+        return false;
+    }
+    
+    // Auto-populate razonsocial from nombre
+    if (empty($this->razonsocial)) {
+        $this->razonsocial = $this->nombre;
+    }
+    
+    // Validate web URL
+    if (!empty($this->web) && false === Validator::url($this->web)) {
+        return false;
+    }
+    
+    // Clean HTML
+    $this->nombre = Tools::noHtml($this->nombre);
+    $this->razonsocial = Tools::noHtml($this->razonsocial);
+    
+    // Set debaja flag from fechabaja
+    $this->debaja = !empty($this->fechabaja);
+    
+    // Validate fiscal number
+    // Validate email and phones
+    // Validate payment days
+    return parent::test() && 
+           $this->testFiscalNumber() && 
+           $this->testEmailAndPhones() && 
+           $this->testDiasPago();
+}
+```
+
+### Code Validation
+
+Customer and supplier codes:
+- 1-10 alphanumeric characters
+- Pattern: `/^[A-Z0-9_\+\.\-]{1,10}$/i`
+- Auto-generated if not provided
+
+## Automatic Creation
+
+### Customer Creation
+
+When a customer is created, a default contact is automatically generated:
+
+```php
+protected function saveInsert(): bool
+{
+    if (parent::saveInsert() && empty($this->idcontactofact)) {
+        // Create default billing contact
+        $contact = new Contacto();
+        $contact->codcliente = $this->codcliente;
+        $contact->nombre = $this->nombre;
+        $contact->empresa = $this->razonsocial;
+        $contact->email = $this->email;
+        // ... copy all relevant fields
+        
+        if ($contact->save()) {
+            $this->idcontactofact = $contact->idcontacto;
+            return $this->save();
+        }
+    }
+}
+```
+
+### Supplier Creation
+
+Similar automatic contact creation for suppliers.
+
+## Customer Groups
+
+Customers can be organized into groups:
+
+- Shared settings (payment terms, subaccount)
+- Group-level discounts
+- Reporting and segmentation
+- Targeted marketing
+
+```php
+// Customer inherits settings from group
+if ($group->codsubcuenta) {
+    return $group->getSubcuenta($codejercicio, $crear);
+}
+```
+
+## Sales Agents
+
+Assign sales agents to customers:
+
+```php
+public $codagente;  // Sales agent code
+```
+
+Benefits:
+- Commission tracking
+- Sales performance reports
+- Customer assignment
+- Territory management
+
+## Privacy and GDPR
+
+Contacts include privacy fields:
+
+```php
+public $aceptaprivacidad;  // Privacy policy accepted
+public $admitemarketing;   // Marketing consent
+public $verificado;        // Email verified
+```
+
+Use these for:
+- GDPR compliance
+- Email marketing lists
+- Communication preferences
+- Consent tracking
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Customer Codes">
+    Use meaningful customer codes if manually assigned. Consider including location, type, or registration year codes.
+  </Accordion>
+  
+  <Accordion title="Credit Limits">
+    Set appropriate credit limits (riesgomax) for customers. Monitor riesgoalcanzado regularly.
+  </Accordion>
+  
+  <Accordion title="Multiple Addresses">
+    Create separate contacts for each physical location. This improves delivery tracking and reporting.
+  </Accordion>
+  
+  <Accordion title="Customer Groups">
+    Use groups for wholesale vs retail customers, or by region. Apply group-level settings to simplify management.
+  </Accordion>
+  
+  <Accordion title="Data Quality">
+    Validate tax IDs using checkVies() for EU customers. Keep email addresses and phone numbers up to date.
+  </Accordion>
+</AccordionGroup>
+
+## Integration Points
+
+### With Invoicing
+
+- Default payment methods and terms
+- Billing and shipping addresses
+- Tax regime and withholding
+- Document series and numbering
+
+### With Accounting
+
+- Automatic subaccount creation
+- Customer/supplier balances
+- Aging reports
+- Payment tracking
+
+### With Inventory
+
+- Customer-specific pricing (via tariffs)
+- Preferred products
+- Purchase history
+- Sales analysis
+
+## Related Models
+
+- `Core/Model/Cliente.php` - Customers
+- `Core/Model/Proveedor.php` - Suppliers
+- `Core/Model/Contacto.php` - Contacts/addresses
+- `Core/Model/GrupoClientes.php` - Customer groups
+- `Core/Model/Agente.php` - Sales agents
+- `Core/Model/CuentaBancoCliente.php` - Customer bank accounts
+- `Core/Model/CuentaBancoProveedor.php` - Supplier bank accounts
+- `Core/Model/FormaPago.php` - Payment methods
+- `Core/Model/Retencion.php` - Tax withholding
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Learn how to create invoices for customers
+  </Card>
+  <Card title="Accounting" icon="calculator" href="/features/accounting">
+    Understand customer/supplier accounting integration
+  </Card>
+</CardGroup>

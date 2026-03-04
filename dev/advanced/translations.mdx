@@ -1,0 +1,465 @@
+---
+title: Translation System
+description: Internationalization and localization in FacturaScripts
+---
+
+## Overview
+
+FacturaScripts includes a powerful translation system that supports multiple languages and locales. The `Translator` class (`Core/Translator.php`) manages translations with parameter substitution and fallback support.
+
+## Basic Usage
+
+### Getting the Translator
+
+```php
+use FacturaScripts\Core\Tools;
+
+// Get translator with default language
+$i18n = Tools::lang();
+
+// Get translator for specific language
+use FacturaScripts\Core\Translator;
+$i18n = new Translator('es_ES');
+```
+
+### Simple Translation
+
+```php
+// Translate a string
+$text = $i18n->trans('accept');
+// Returns: "Aceptar" (in Spanish)
+
+$text = $i18n->trans('cancel');
+// Returns: "Cancelar" (in Spanish)
+
+// If translation not found, returns the key
+$text = $i18n->trans('non-existent-key');
+// Returns: "non-existent-key"
+```
+
+### Translation with Parameters
+
+Translations can include placeholders for dynamic values:
+
+```php
+// Translation with single parameter
+$text = $i18n->trans('account-bad-parent', ['%codcuenta%' => '999']);
+// Returns: "La cuenta 999 tiene asociada una cuenta padre equivocada."
+
+// Translation with multiple parameters
+$text = $i18n->trans('user-greeting', [
+    '%name%' => 'John',
+    '%role%' => 'Administrator'
+]);
+```
+
+<Note>
+Parameter keys must start and end with `%`. The values must be strings or numbers.
+</Note>
+
+## Translation Files
+
+### File Structure
+
+Translation files are JSON files located in the `Translation` directory:
+
+```
+Core/Translation/
+├── es_ES.json    # Spanish (Spain)
+├── en_EN.json    # English
+├── fr_FR.json    # French
+├── de_DE.json    # German
+├── it_IT.json    # Italian
+├── pt_PT.json    # Portuguese
+└── ...
+
+Plugins/MyPlugin/Translation/
+├── es_ES.json
+└── en_EN.json
+```
+
+### Translation File Format
+
+Each translation file is a JSON object mapping keys to translated strings:
+
+```json
+{
+  "accept": "Accept",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "account-bad-parent": "The account %codcuenta% has an incorrect parent account.",
+  "user-greeting": "Hello %name%, you are logged in as %role%."
+}
+```
+
+### Spanish Example (es_ES.json)
+
+```json
+{
+  "accept": "Aceptar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "delete": "Eliminar",
+  "account-bad-parent": "La cuenta %codcuenta% tiene asociada una cuenta padre equivocada.",
+  "user-greeting": "Hola %name%, has iniciado sesión como %role%."
+}
+```
+
+## Available Languages
+
+FacturaScripts supports the following languages out of the box:
+
+- `es_ES` - Spanish (Spain)
+- `ca_ES` - Catalan
+- `eu_ES` - Basque
+- `gl_ES` - Galician
+- `va_ES` - Valencian
+- `en_EN` - English
+- `fr_FR` - French
+- `de_DE` - German
+- `it_IT` - Italian
+- `pt_PT` - Portuguese (Portugal)
+- `pt_BR` - Portuguese (Brazil)
+- `pl_PL` - Polish
+- `cs_CZ` - Czech
+- `tr_TR` - Turkish
+
+Latin American Spanish variants:
+- `es_AR` - Spanish (Argentina)
+- `es_CL` - Spanish (Chile)
+- `es_CO` - Spanish (Colombia)
+- `es_CR` - Spanish (Costa Rica)
+- `es_DO` - Spanish (Dominican Republic)
+- `es_EC` - Spanish (Ecuador)
+- `es_GT` - Spanish (Guatemala)
+- `es_MX` - Spanish (Mexico)
+- `es_PA` - Spanish (Panama)
+- `es_PE` - Spanish (Peru)
+- `es_UY` - Spanish (Uruguay)
+
+### Getting Available Languages
+
+```php
+$languages = $i18n->getAvailableLanguages();
+// Returns: ['es_ES' => 'Español', 'en_EN' => 'English', ...]
+
+foreach ($languages as $code => $name) {
+    echo "<option value='{$code}'>{$name}</option>";
+}
+```
+
+## Plugin Translations
+
+### Creating Plugin Translations
+
+Plugins can provide their own translations:
+
+1. Create a `Translation` directory in your plugin:
+
+```
+Plugins/MyPlugin/
+├── Translation/
+│   ├── es_ES.json
+│   └── en_EN.json
+└── ...
+```
+
+2. Add translation files:
+
+**Plugins/MyPlugin/Translation/es_ES.json:**
+```json
+{
+  "my-plugin-setting": "Configuración de mi plugin",
+  "my-plugin-enabled": "Plugin activado",
+  "my-plugin-welcome": "Bienvenido al plugin %name%"
+}
+```
+
+**Plugins/MyPlugin/Translation/en_EN.json:**
+```json
+{
+  "my-plugin-setting": "My plugin setting",
+  "my-plugin-enabled": "Plugin enabled",
+  "my-plugin-welcome": "Welcome to %name% plugin"
+}
+```
+
+### Using Plugin Translations
+
+```php
+// In your plugin controller or model
+$text = $this->toolBox()->i18n()->trans('my-plugin-setting');
+
+// With parameters
+$text = $this->toolBox()->i18n()->trans('my-plugin-welcome', [
+    '%name%' => 'MyPlugin'
+]);
+```
+
+## Translation Deployment
+
+FacturaScripts compiles all translations (Core + Plugins) into a single file per language in the `Dinamic/Translation` directory.
+
+### Manual Deployment
+
+```php
+use FacturaScripts\Core\Translator;
+
+// Deploy all translations
+Translator::deploy();
+```
+
+This combines:
+1. Core translations from `Core/Translation/`
+2. Plugin translations from `Plugins/*/Translation/`
+3. Custom translations from `MyFiles/Translation/`
+
+And outputs to `Dinamic/Translation/`.
+
+<Note>
+Translations are automatically deployed when:
+- Plugins are enabled/disabled
+- The system is updated
+- Cache is cleared
+</Note>
+
+## Advanced Features
+
+### Custom Language Translation
+
+Translate a string in a specific language without changing the current language:
+
+```php
+// Get translation in Spanish regardless of current language
+$text = $i18n->customTrans('es_ES', 'welcome-message');
+
+// With parameters
+$text = $i18n->customTrans('es_ES', 'user-greeting', [
+    '%name%' => 'John'
+]);
+```
+
+### Switching Languages
+
+```php
+// Create translator with Spanish
+$i18n = new Translator('es_ES');
+echo $i18n->trans('accept'); // "Aceptar"
+
+// Switch to English
+$i18n->setLang('en_EN');
+echo $i18n->trans('accept'); // "Accept"
+
+// Check current language
+$current = $i18n->getLang(); // "en_EN"
+```
+
+### Default Language
+
+The default language is set in `config.php` via the `FS_LANG` constant:
+
+```php
+define('FS_LANG', 'es_ES');
+```
+
+Change the default at runtime:
+
+```php
+Translator::setDefaultLang('en_EN');
+```
+
+### Tracking Missing Translations
+
+During development, you can track which translations are missing:
+
+```php
+$i18n = new Translator('es_ES');
+
+// Request translations
+$i18n->trans('existing-key');
+$i18n->trans('missing-key');
+$i18n->trans('another-missing-key');
+
+// Get list of missing translations
+$missing = $i18n->getMissingStrings();
+// Returns: ['missing-key@es_ES' => 'missing-key', 'another-missing-key@es_ES' => 'another-missing-key']
+
+// Get all used translations
+$used = $i18n->getUsedStrings();
+```
+
+### Special Translation Keys
+
+Some model names have special translation keys for consistency:
+
+| Model Name | Translation Key |
+|------------|----------------|
+| `AlbaranCliente` | `customer-delivery-note` |
+| `AlbaranProveedor` | `supplier-delivery-note` |
+| `FacturaCliente` | `customer-invoice` |
+| `FacturaProveedor` | `supplier-invoice` |
+| `PedidoCliente` | `customer-order` |
+| `PedidoProveedor` | `supplier-order` |
+| `PresupuestoCliente` | `customer-estimation` |
+| `PresupuestoProveedor` | `supplier-estimation` |
+
+These are automatically mapped by the `Translator` class.
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use descriptive keys">
+    Use clear, descriptive keys for translations:
+    
+    ```json
+    // Good
+    {
+      "customer-invoice-total": "Total",
+      "customer-invoice-date": "Invoice date",
+      "customer-invoice-paid": "Paid"
+    }
+    
+    // Avoid
+    {
+      "txt1": "Total",
+      "txt2": "Invoice date",
+      "txt3": "Paid"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Keep translations in sync">
+    When adding a new translation key, add it to ALL language files:
+    
+    ```json
+    // es_ES.json
+    {"new-feature": "Nueva función"}
+    
+    // en_EN.json
+    {"new-feature": "New feature"}
+    
+    // fr_FR.json
+    {"new-feature": "Nouvelle fonctionnalité"}
+    ```
+  </Accordion>
+
+  <Accordion title="Use parameters for dynamic content">
+    Never concatenate translations - use parameters instead:
+    
+    ```php
+    // Good
+    $i18n->trans('welcome-user', ['%name%' => $user->nombre]);
+    // Translation: "Welcome %name%!"
+    
+    // Bad
+    $i18n->trans('welcome') . ' ' . $user->nombre . '!';
+    ```
+  </Accordion>
+
+  <Accordion title="Provide context in keys">
+    Use prefixes to group related translations:
+    
+    ```json
+    {
+      "invoice-new": "New invoice",
+      "invoice-edit": "Edit invoice",
+      "invoice-delete": "Delete invoice",
+      "product-new": "New product",
+      "product-edit": "Edit product",
+      "product-delete": "Delete product"
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Test all languages">
+    Before releasing, verify all language files are valid JSON and contain the same keys:
+    
+    ```php
+    // Check translations are consistent
+    $es = json_decode(file_get_contents('Translation/es_ES.json'), true);
+    $en = json_decode(file_get_contents('Translation/en_EN.json'), true);
+    
+    $missingInEnglish = array_diff_key($es, $en);
+    $missingInSpanish = array_diff_key($en, $es);
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## In Controllers
+
+The translation system is easily accessible in controllers:
+
+```php
+use FacturaScripts\Core\Base\Controller;
+
+class MyController extends Controller
+{
+    public function privateCore(&$response, $user, $permissions)
+    {
+        parent::privateCore($response, $user, $permissions);
+        
+        // Get translator
+        $i18n = $this->toolBox()->i18n();
+        
+        // Use translations
+        $this->title = $i18n->trans('my-page-title');
+        $this->addMessage($i18n->trans('operation-successful'));
+    }
+}
+```
+
+## In Models
+
+```php
+use FacturaScripts\Core\Model\Base\ModelClass;
+use FacturaScripts\Core\Tools;
+
+class MyModel extends ModelClass
+{
+    public function test(): bool
+    {
+        $i18n = Tools::lang();
+        
+        if (empty($this->name)) {
+            Tools::log()->error($i18n->trans('name-required'));
+            return false;
+        }
+        
+        return parent::test();
+    }
+}
+```
+
+## In Views
+
+In Twig templates:
+
+```twig
+{# Simple translation #}
+<h1>{{ i18n.trans('welcome') }}</h1>
+
+{# With parameters #}
+<p>{{ i18n.trans('user-greeting', {'%name%': user.nombre}) }}</p>
+
+{# In attributes #}
+<button title="{{ i18n.trans('save-and-continue') }}">
+    {{ i18n.trans('save') }}
+</button>
+```
+
+## Reference
+
+### Translator Methods
+
+| Method | Description |
+|--------|-------------|
+| `trans($key, $params)` | Translate a string |
+| `customTrans($lang, $key, $params)` | Translate in specific language |
+| `setLang($code)` | Set current language |
+| `getLang()` | Get current language code |
+| `getAvailableLanguages()` | Get all available languages |
+| `getMissingStrings()` | Get untranslated keys |
+| `getUsedStrings()` | Get all used translations |
+| `deploy()` | Compile all translations |
+| `reload()` | Clear translation cache |

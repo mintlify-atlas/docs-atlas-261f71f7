@@ -1,0 +1,622 @@
+---
+title: API Endpoints
+description: Complete reference of FacturaScripts API endpoints for documents, files, and plugins
+icon: webhook
+---
+
+## Overview
+
+The FacturaScripts API provides both standard model-based endpoints and custom endpoints for specific business operations. This page documents the custom API controllers and their endpoints.
+
+<Note>
+All endpoints require authentication via the `X-Auth-Token` header. See [Authentication](/api/authentication) for details.
+</Note>
+
+## Document Creation Endpoints
+
+Create business documents (invoices, delivery notes, orders, quotes) through the API.
+
+**Base Controller**: `ApiCreateDocument.php`
+
+### Create Customer Invoice
+
+```http
+POST /api/3/crearFacturaCliente
+```
+
+Creates a new customer invoice with lines.
+
+#### Request Parameters
+
+<ParamField body="codcliente" type="string" required>
+  Customer code (required)
+</ParamField>
+
+<ParamField body="codalmacen" type="string">
+  Warehouse code
+</ParamField>
+
+<ParamField body="fecha" type="string">
+  Invoice date (YYYY-MM-DD format)
+</ParamField>
+
+<ParamField body="hora" type="string">
+  Invoice time (HH:MM:SS format)
+</ParamField>
+
+<ParamField body="coddivisa" type="string">
+  Currency code
+</ParamField>
+
+<ParamField body="lineas" type="string" required>
+  JSON array of invoice lines (stringified)
+</ParamField>
+
+<ParamField body="pagada" type="boolean">
+  Mark invoice as paid
+</ParamField>
+
+#### Line Object Structure
+
+```json
+{
+  "referencia": "PROD001",
+  "descripcion": "Product description",
+  "cantidad": 2,
+  "pvpunitario": 100.00,
+  "dtopor": 10.0,
+  "dtopor2": 0.0,
+  "codimpuesto": "IVA21",
+  "excepcioniva": null,
+  "suplido": false,
+  "mostrar_cantidad": true,
+  "mostrar_precio": true,
+  "salto_pagina": false
+}
+```
+
+#### Example Request
+
+```bash
+curl -X POST "https://example.com/api/3/crearFacturaCliente" \
+  -H "X-Auth-Token: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "codcliente": "CUST001",
+    "codalmacen": "ALM01",
+    "fecha": "2026-03-04",
+    "lineas": "[{\"referencia\":\"PROD001\",\"cantidad\":2,\"pvpunitario\":100}]"
+  }'
+```
+
+#### Response
+
+<ResponseField name="doc" type="object">
+  The created invoice document
+</ResponseField>
+
+<ResponseField name="lines" type="array">
+  Array of created invoice lines
+</ResponseField>
+
+```json
+{
+  "doc": {
+    "idfactura": 123,
+    "codigo": "FAC2026001",
+    "codcliente": "CUST001",
+    "total": 200.00,
+    "fecha": "2026-03-04"
+  },
+  "lines": [
+    {
+      "idlinea": 456,
+      "referencia": "PROD001",
+      "cantidad": 2,
+      "pvpunitario": 100.00,
+      "pvptotal": 200.00
+    }
+  ]
+}
+```
+
+### Create Supplier Invoice
+
+```http
+POST /api/3/crearFacturaProveedor
+```
+
+Creates a new supplier invoice. Similar to customer invoice but uses `codproveedor` instead of `codcliente`.
+
+#### Request Parameters
+
+<ParamField body="codproveedor" type="string" required>
+  Supplier code (required)
+</ParamField>
+
+<ParamField body="lineas" type="string" required>
+  JSON array of invoice lines (stringified)
+</ParamField>
+
+Other parameters are the same as customer invoice.
+
+### Other Document Creation Endpoints
+
+All following endpoints use the same request/response format as invoice creation:
+
+#### Customer Documents
+
+- **POST** `/api/3/crearAlbaranCliente` - Create customer delivery note
+- **POST** `/api/3/crearPedidoCliente` - Create customer order
+- **POST** `/api/3/crearPresupuestoCliente` - Create customer quote
+
+#### Supplier Documents
+
+- **POST** `/api/3/crearAlbaranProveedor` - Create supplier delivery note
+- **POST** `/api/3/crearPedidoProveedor` - Create supplier order
+- **POST** `/api/3/crearPresupuestoProveedor` - Create supplier quote
+
+### Create Rectificative Invoice
+
+```http
+POST /api/3/crearFacturaRectificativaCliente
+```
+
+Creates a rectificative (credit) invoice for a customer invoice.
+
+**Controller**: `ApiCreateFacturaRectificativaCliente.php`
+
+## Document Export Endpoints
+
+Export business documents as PDF or other formats.
+
+**Base Controller**: `ApiExportDocument.php`
+
+### Export Customer Invoice
+
+```http
+GET /api/3/exportarFacturaCliente/{code}
+```
+
+Exports a customer invoice as PDF.
+
+#### URL Parameters
+
+<ParamField path="code" type="string" required>
+  Invoice code or ID
+</ParamField>
+
+#### Query Parameters
+
+<ParamField query="type" type="string" default="PDF">
+  Export format (PDF, etc.)
+</ParamField>
+
+<ParamField query="format" type="integer" default="0">
+  Document format/template ID
+</ParamField>
+
+<ParamField query="lang" type="string">
+  Language code for export (defaults to customer language)
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X GET "https://example.com/api/3/exportarFacturaCliente/FAC2026001?type=PDF" \
+  -H "X-Auth-Token: your-api-key" \
+  --output invoice.pdf
+```
+
+#### Response
+
+Returns the PDF file as binary data with appropriate content-type header.
+
+### Other Document Export Endpoints
+
+#### Customer Documents
+
+- **GET** `/api/3/exportarAlbaranCliente/{code}` - Export customer delivery note
+- **GET** `/api/3/exportarPedidoCliente/{code}` - Export customer order
+- **GET** `/api/3/exportarPresupuestoCliente/{code}` - Export customer quote
+
+#### Supplier Documents
+
+- **GET** `/api/3/exportarAlbaranProveedor/{code}` - Export supplier delivery note
+- **GET** `/api/3/exportarFacturaProveedor/{code}` - Export supplier invoice
+- **GET** `/api/3/exportarPedidoProveedor/{code}` - Export supplier order
+- **GET** `/api/3/exportarPresupuestoProveedor/{code}` - Export supplier quote
+
+## Payment Endpoints
+
+Mark invoices as paid or unpaid.
+
+### Mark Customer Invoice as Paid
+
+```http
+POST /api/3/pagarFacturaCliente/{id}
+```
+
+**Controller**: `ApiPagarFacturaCliente.php`
+
+Marks a customer invoice as paid or unpaid by updating all associated receipts.
+
+#### URL Parameters
+
+<ParamField path="id" type="integer" required>
+  Invoice ID
+</ParamField>
+
+#### Request Parameters
+
+<ParamField body="pagada" type="boolean" required>
+  True to mark as paid, false to mark as unpaid
+</ParamField>
+
+<ParamField body="fechapago" type="string">
+  Payment date (when marking as paid)
+</ParamField>
+
+<ParamField body="codpago" type="string">
+  Payment method code
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X POST "https://example.com/api/3/pagarFacturaCliente/123" \
+  -H "X-Auth-Token: your-api-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "pagada": true,
+    "fechapago": "2026-03-04",
+    "codpago": "BANK"
+  }'
+```
+
+#### Response
+
+<ResponseField name="ok" type="string">
+  Success message
+</ResponseField>
+
+<ResponseField name="data" type="object">
+  Updated invoice data
+</ResponseField>
+
+```json
+{
+  "ok": "record-updated-correctly",
+  "data": {
+    "idfactura": 123,
+    "codigo": "FAC2026001",
+    "pagada": true,
+    "fechapago": "2026-03-04"
+  }
+}
+```
+
+### Mark Supplier Invoice as Paid
+
+```http
+POST /api/3/pagarFacturaProveedor/{id}
+```
+
+**Controller**: `ApiPagarFacturaProveedor.php`
+
+Same functionality as customer invoice payment but for supplier invoices.
+
+## File Management Endpoints
+
+### Upload Files
+
+```http
+POST /api/3/uploadFiles
+```
+
+**Controller**: `ApiUploadFiles.php`
+
+Upload multiple files to the MyFiles directory.
+
+#### Request Format
+
+Use `multipart/form-data` encoding with file fields named `files[]`.
+
+#### Example Request
+
+```bash
+curl -X POST "https://example.com/api/3/uploadFiles" \
+  -H "X-Auth-Token: your-api-key" \
+  -F "files[]=@/path/to/file1.pdf" \
+  -F "files[]=@/path/to/file2.jpg"
+```
+
+#### Response
+
+<ResponseField name="files" type="array">
+  Array of uploaded file objects
+</ResponseField>
+
+```json
+{
+  "files": [
+    {
+      "id": 1,
+      "path": "file1.pdf",
+      "size": 102400
+    },
+    {
+      "id": 2,
+      "path": "file2.jpg",
+      "size": 51200
+    }
+  ]
+}
+```
+
+<Warning>
+PHP files are automatically rejected for security reasons.
+</Warning>
+
+### Attached Files
+
+```http
+GET|POST|PUT|DELETE /api/3/attachedfiles
+```
+
+**Controller**: `ApiAttachedFiles.php`
+
+Full CRUD operations for attached files.
+
+#### List All Files
+
+```http
+GET /api/3/attachedfiles
+```
+
+##### Query Parameters
+
+<ParamField query="filter" type="object">
+  Filter conditions (field_operator: value)
+</ParamField>
+
+<ParamField query="sort" type="object">
+  Sort order (field: ASC/DESC)
+</ParamField>
+
+<ParamField query="limit" type="integer" default="50">
+  Maximum number of records
+</ParamField>
+
+<ParamField query="offset" type="integer" default="0">
+  Offset for pagination
+</ParamField>
+
+##### Filter Operators
+
+- `field` - Equals
+- `field_gt` - Greater than
+- `field_lt` - Less than
+- `field_gte` - Greater than or equal
+- `field_lte` - Less than or equal
+- `field_neq` - Not equal
+- `field_like` - Contains (case-insensitive)
+- `field_null` - Is null
+- `field_notnull` - Is not null
+
+##### Example Request
+
+```bash
+curl -X GET "https://example.com/api/3/attachedfiles?limit=10&offset=0" \
+  -H "X-Auth-Token: your-api-key"
+```
+
+##### Response
+
+```json
+[
+  {
+    "id": 1,
+    "path": "document.pdf",
+    "download": "https://example.com/DownloadFile?id=1",
+    "download-permanent": "https://example.com/DownloadFile?id=1&token=..."
+  }
+]
+```
+
+The response includes an `X-Total-Count` header with the total number of records.
+
+#### Get Single File
+
+```http
+GET /api/3/attachedfiles/{id}
+```
+
+#### Get File Schema
+
+```http
+GET /api/3/attachedfiles/schema
+```
+
+Returns the model schema with field types and properties.
+
+#### Create File
+
+```http
+POST /api/3/attachedfiles
+```
+
+Use `multipart/form-data` to upload a new file.
+
+#### Update File
+
+```http
+PUT /api/3/attachedfiles/{id}
+```
+
+Update file metadata (not the file itself).
+
+#### Delete File
+
+```http
+DELETE /api/3/attachedfiles/{id}
+```
+
+Deletes both the database record and the physical file.
+
+## Plugin Management Endpoints
+
+```http
+GET|POST /api/3/plugins
+```
+
+**Controller**: `ApiPlugins.php`
+
+Manage FacturaScripts plugins through the API.
+
+<Warning>
+Plugin enable/disable operations require an API key with `fullaccess = true`.
+</Warning>
+
+### List All Plugins
+
+```http
+GET /api/3/plugins
+```
+
+#### Query Parameters
+
+<ParamField query="filter" type="object">
+  Filter plugins by properties
+</ParamField>
+
+<ParamField query="sort" type="object">
+  Sort plugins (field: ASC/DESC)
+</ParamField>
+
+#### Example Request
+
+```bash
+curl -X GET "https://example.com/api/3/plugins" \
+  -H "X-Auth-Token: your-api-key"
+```
+
+#### Response
+
+```json
+[
+  {
+    "name": "MyPlugin",
+    "description": "Plugin description",
+    "version": "1.0.0",
+    "enabled": true,
+    "compatible": true,
+    "folder": "MyPlugin",
+    "min_version": "2024.1",
+    "min_php": "7.4",
+    "require": [],
+    "require_php": []
+  }
+]
+```
+
+### Get Single Plugin
+
+```http
+GET /api/3/plugins/{name}
+```
+
+Returns detailed information about a specific plugin.
+
+### Enable Plugin
+
+```http
+POST /api/3/plugins/{name}/enable
+```
+
+Enables a plugin. Requires full access API key.
+
+#### Example Request
+
+```bash
+curl -X POST "https://example.com/api/3/plugins/MyPlugin/enable" \
+  -H "X-Auth-Token: your-full-access-api-key"
+```
+
+#### Response
+
+```json
+{
+  "status": "success",
+  "message": "plugin-enabled"
+}
+```
+
+### Disable Plugin
+
+```http
+POST /api/3/plugins/{name}/disable
+```
+
+Disables a plugin. Requires full access API key.
+
+## Product Images
+
+```http
+/api/3/productoimagenes
+```
+
+**Controller**: `ApiProductoImagen.php`
+
+Manage product images (implementation varies by installation).
+
+## Error Responses
+
+All endpoints return consistent error responses:
+
+### Bad Request (400)
+
+```json
+{
+  "status": "error",
+  "message": "codcliente field is required"
+}
+```
+
+### Not Found (404)
+
+```json
+{
+  "status": "error",
+  "message": "record-not-found"
+}
+```
+
+### Method Not Allowed (405)
+
+```json
+{
+  "status": "error",
+  "message": "method-not-allowed"
+}
+```
+
+### Unprocessable Entity (422)
+
+```json
+{
+  "status": "error",
+  "message": "record-save-error"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Configure API authentication
+  </Card>
+  <Card title="Webhooks" icon="bolt" href="/api/webhooks">
+    Learn about webhook support
+  </Card>
+</CardGroup>

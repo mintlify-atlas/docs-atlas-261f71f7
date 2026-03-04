@@ -1,0 +1,562 @@
+---
+title: Reports & Analytics
+description: Comprehensive reporting and analytics capabilities for business intelligence
+icon: chart-line
+---
+
+FacturaScripts provides extensive reporting capabilities across all business areas including sales, purchases, inventory, accounting, and financial analysis.
+
+## Report Categories
+
+<CardGroup cols={2}>
+  <Card title="Financial Reports" icon="chart-bar">
+    Balance sheets, profit & loss, and financial statements
+  </Card>
+  <Card title="Sales Analytics" icon="line-chart">
+    Sales reports, customer analysis, and performance metrics
+  </Card>
+  <Card title="Inventory Reports" icon="boxes-stacked">
+    Stock levels, movements, and warehouse analytics
+  </Card>
+  <Card title="Accounting Reports" icon="book">
+    Trial balance, journal reports, and tax declarations
+  </Card>
+</CardGroup>
+
+## Data Access for Reports
+
+FacturaScripts provides multiple ways to access data for reporting:
+
+### Model Queries
+
+All models support flexible querying:
+
+```php
+use FacturaScripts\Core\Base\DataBase\DataBaseWhere;
+
+// Basic query
+$customers = Cliente::all();
+
+// With filters
+$where = [
+    new DataBaseWhere('debaja', false),
+    new DataBaseWhere('riesgoalcanzado', 0, '>')
+];
+$activeCustomers = Cliente::all($where);
+
+// With ordering and limits
+$topCustomers = Cliente::all(
+    $where,
+    ['riesgoalcanzado' => 'DESC'],
+    0,  // offset
+    10  // limit
+);
+```
+
+### Date Range Queries
+
+```php
+// Invoices in date range
+$where = [
+    new DataBaseWhere('fecha', $startDate, '>='),
+    new DataBaseWhere('fecha', $endDate, '<=')
+];
+$invoices = FacturaCliente::all($where);
+```
+
+### Database Access
+
+Direct SQL queries for complex reports:
+
+```php
+$sql = "SELECT 
+    YEAR(fecha) as year,
+    MONTH(fecha) as month,
+    SUM(total) as total_sales
+    FROM facturascli
+    WHERE codejercicio = " . self::db()->var2str($exercise) . "
+    GROUP BY YEAR(fecha), MONTH(fecha)
+    ORDER BY year, month";
+
+$data = self::db()->select($sql);
+```
+
+## Financial Reports
+
+### Balance Sheet
+
+Assets, liabilities, and equity reporting:
+
+**Key Accounts:**
+- Assets: Cash, accounts receivable, inventory
+- Liabilities: Accounts payable, loans
+- Equity: Capital, retained earnings
+
+**Data Sources:**
+- `Cuenta` model for account structure
+- `Subcuenta` model for detailed balances
+- `Asiento` and `Partida` for transactions
+
+```php
+// Get account balances
+$cuenta = new Cuenta();
+$where = [
+    new DataBaseWhere('codejercicio', $exercise),
+    new DataBaseWhere('codcuenta', '1%', 'LIKE') // Assets
+];
+$assets = $cuenta->all($where);
+
+foreach ($assets as $account) {
+    echo $account->codcuenta . ": " . $account->saldo;
+}
+```
+
+### Profit & Loss Statement
+
+Income and expense analysis:
+
+**Components:**
+- Revenue: Sales, services
+- Cost of Goods Sold: Product costs, purchases
+- Operating Expenses: Salaries, rent, utilities
+- Financial Results: Interest, exchange rates
+- Extraordinary Results: One-time items
+
+**Calculation:**
+
+```php
+// Revenue accounts (typically 7xx)
+$revenue = $this->sumAccountRange('7', $exercise);
+
+// Expense accounts (typically 6xx)
+$expenses = $this->sumAccountRange('6', $exercise);
+
+$profit = $revenue - $expenses;
+```
+
+### Trial Balance
+
+Listing of all accounts with debit and credit totals:
+
+```php
+$sql = "SELECT 
+    s.codsubcuenta,
+    s.descripcion,
+    SUM(p.debe) as debe,
+    SUM(p.haber) as haber,
+    SUM(p.debe) - SUM(p.haber) as saldo
+    FROM subcuentas s
+    LEFT JOIN partidas p ON p.codsubcuenta = s.codsubcuenta 
+        AND p.idasiento IN (
+            SELECT idasiento FROM asientos 
+            WHERE codejercicio = " . self::db()->var2str($exercise) . "
+        )
+    WHERE s.codejercicio = " . self::db()->var2str($exercise) . "
+    GROUP BY s.codsubcuenta, s.descripcion
+    ORDER BY s.codsubcuenta";
+
+$balances = self::db()->select($sql);
+```
+
+## Sales Reports
+
+### Sales by Period
+
+```php
+// Monthly sales totals
+$sql = "SELECT 
+    YEAR(fecha) as year,
+    MONTH(fecha) as month,
+    COUNT(*) as num_invoices,
+    SUM(neto) as neto,
+    SUM(total) as total
+    FROM facturascli
+    WHERE fecha >= " . self::db()->var2str($startDate) . "
+    AND fecha <= " . self::db()->var2str($endDate) . "
+    GROUP BY YEAR(fecha), MONTH(fecha)
+    ORDER BY year, month";
+```
+
+### Top Customers
+
+```php
+// Customers by revenue
+$sql = "SELECT 
+    c.codcliente,
+    c.nombre,
+    COUNT(f.idfactura) as num_invoices,
+    SUM(f.total) as total_sales
+    FROM clientes c
+    LEFT JOIN facturascli f ON f.codcliente = c.codcliente
+        AND f.fecha >= " . self::db()->var2str($startDate) . "
+        AND f.fecha <= " . self::db()->var2str($endDate) . "
+    GROUP BY c.codcliente, c.nombre
+    HAVING SUM(f.total) > 0
+    ORDER BY total_sales DESC
+    LIMIT 50";
+```
+
+### Sales by Product
+
+```php
+// Best selling products
+$sql = "SELECT 
+    v.referencia,
+    p.descripcion,
+    SUM(l.cantidad) as cantidad,
+    SUM(l.pvptotal) as total_sales
+    FROM lineasfacturascli l
+    JOIN facturascli f ON f.idfactura = l.idfactura
+    JOIN variantes v ON v.referencia = l.referencia
+    JOIN productos p ON p.idproducto = v.idproducto
+    WHERE f.fecha >= " . self::db()->var2str($startDate) . "
+    AND f.fecha <= " . self::db()->var2str($endDate) . "
+    GROUP BY v.referencia, p.descripcion
+    ORDER BY total_sales DESC
+    LIMIT 100";
+```
+
+### Sales by Agent
+
+```php
+// Agent performance
+$sql = "SELECT 
+    a.codagente,
+    a.nombre,
+    COUNT(f.idfactura) as num_invoices,
+    SUM(f.neto) as neto,
+    SUM(f.total) as total
+    FROM agentes a
+    LEFT JOIN facturascli f ON f.codagente = a.codagente
+        AND f.fecha >= " . self::db()->var2str($startDate) . "
+        AND f.fecha <= " . self::db()->var2str($endDate) . "
+    GROUP BY a.codagente, a.nombre
+    ORDER BY total DESC";
+```
+
+## Inventory Reports
+
+### Stock Levels
+
+```php
+// Current stock by warehouse
+$sql = "SELECT 
+    s.codalmacen,
+    a.nombre as almacen,
+    v.referencia,
+    p.descripcion,
+    s.cantidad,
+    s.reservada,
+    s.disponible,
+    s.pterecibir,
+    s.stockmin,
+    s.stockmax
+    FROM stocks s
+    JOIN almacenes a ON a.codalmacen = s.codalmacen
+    JOIN variantes v ON v.referencia = s.referencia
+    JOIN productos p ON p.idproducto = v.idproducto
+    WHERE s.cantidad > 0 OR s.pterecibir > 0
+    ORDER BY s.codalmacen, v.referencia";
+```
+
+### Low Stock Alert
+
+```php
+// Products below minimum stock
+$sql = "SELECT 
+    v.referencia,
+    p.descripcion,
+    s.codalmacen,
+    s.cantidad,
+    s.stockmin,
+    s.stockmin - s.cantidad as to_order
+    FROM stocks s
+    JOIN variantes v ON v.referencia = s.referencia
+    JOIN productos p ON p.idproducto = v.idproducto
+    WHERE s.stockmin > 0 AND s.cantidad < s.stockmin
+    ORDER BY to_order DESC";
+```
+
+### Stock Valuation
+
+```php
+// Inventory value by warehouse
+$sql = "SELECT 
+    s.codalmacen,
+    a.nombre as almacen,
+    SUM(s.cantidad * v.coste) as cost_value,
+    SUM(s.cantidad * v.precio) as sale_value
+    FROM stocks s
+    JOIN almacenes a ON a.codalmacen = s.codalmacen
+    JOIN variantes v ON v.referencia = s.referencia
+    WHERE s.cantidad > 0
+    GROUP BY s.codalmacen, a.nombre
+    ORDER BY cost_value DESC";
+```
+
+### Stock Movements
+
+Track stock changes over time by analyzing document lines:
+
+```php
+// Stock movements from delivery notes
+$sql = "SELECT 
+    l.referencia,
+    l.cantidad,
+    l.descripcion,
+    a.fecha,
+    a.codigo,
+    alm.nombre as almacen
+    FROM lineasalbaranescli l
+    JOIN albaranescli a ON a.idalbaran = l.idalbaran
+    JOIN almacenes alm ON alm.codalmacen = a.codalmacen
+    WHERE l.referencia = " . self::db()->var2str($reference) . "
+    AND a.fecha >= " . self::db()->var2str($startDate) . "
+    ORDER BY a.fecha DESC";
+```
+
+## Accounting Reports
+
+### Journal Report
+
+List of all accounting entries:
+
+```php
+$sql = "SELECT 
+    a.numero,
+    a.fecha,
+    a.concepto,
+    a.importe,
+    d.descripcion as diario
+    FROM asientos a
+    LEFT JOIN diarios d ON d.iddiario = a.iddiario
+    WHERE a.codejercicio = " . self::db()->var2str($exercise) . "
+    ORDER BY a.numero";
+```
+
+### Account Ledger
+
+Transactions for a specific account:
+
+```php
+$sql = "SELECT 
+    a.fecha,
+    a.numero,
+    p.concepto,
+    p.debe,
+    p.haber
+    FROM partidas p
+    JOIN asientos a ON a.idasiento = p.idasiento
+    WHERE p.codsubcuenta = " . self::db()->var2str($subaccount) . "
+    AND a.codejercicio = " . self::db()->var2str($exercise) . "
+    ORDER BY a.fecha, a.numero";
+```
+
+### Tax Reports (VAT)
+
+```php
+// VAT summary
+$sql = "SELECT 
+    fecha,
+    SUM(CASE WHEN cifnif IS NULL THEN totaliva ELSE 0 END) as iva_soportado,
+    SUM(CASE WHEN cifnif IS NOT NULL THEN totaliva ELSE 0 END) as iva_repercutido
+    FROM facturascli
+    WHERE codejercicio = " . self::db()->var2str($exercise) . "
+    GROUP BY fecha
+    ORDER BY fecha";
+```
+
+## Aged Receivables/Payables
+
+### Customer Aging
+
+```php
+// Overdue customer balances
+$sql = "SELECT 
+    c.codcliente,
+    c.nombre,
+    r.numero,
+    r.fechavencimiento,
+    r.importe,
+    DATEDIFF(NOW(), r.fechavencimiento) as days_overdue
+    FROM reciboscli r
+    JOIN clientes c ON c.codcliente = r.codcliente
+    WHERE r.pagado = 0
+    AND r.fechavencimiento < NOW()
+    ORDER BY days_overdue DESC, r.importe DESC";
+```
+
+### Supplier Aging
+
+```php
+// Due supplier payments
+$sql = "SELECT 
+    p.codproveedor,
+    p.nombre,
+    r.numero,
+    r.fechavencimiento,
+    r.importe,
+    DATEDIFF(r.fechavencimiento, NOW()) as days_until_due
+    FROM recibosprov r
+    JOIN proveedores p ON p.codproveedor = r.codproveedor
+    WHERE r.pagado = 0
+    ORDER BY r.fechavencimiento";
+```
+
+## Custom Reports
+
+### Creating Custom Reports
+
+You can create custom reports by:
+
+1. **Extending Report Classes**: Create classes extending base report functionality
+2. **Direct Database Queries**: Use complex SQL for specific needs
+3. **Model Aggregation**: Combine data from multiple models
+4. **Export to Excel/PDF**: Generate downloadable reports
+
+### Example Custom Report
+
+```php
+class SalesAnalysisReport
+{
+    public function getSalesByCustomerAndProduct(
+        string $startDate, 
+        string $endDate
+    ): array {
+        $sql = "SELECT 
+            c.nombre as customer,
+            p.descripcion as product,
+            v.referencia,
+            SUM(l.cantidad) as qty,
+            SUM(l.pvptotal) as total,
+            AVG(l.pvpunitario) as avg_price
+            FROM lineasfacturascli l
+            JOIN facturascli f ON f.idfactura = l.idfactura
+            JOIN clientes c ON c.codcliente = f.codcliente
+            JOIN variantes v ON v.referencia = l.referencia
+            JOIN productos p ON p.idproducto = v.idproducto
+            WHERE f.fecha >= " . self::db()->var2str($startDate) . "
+            AND f.fecha <= " . self::db()->var2str($endDate) . "
+            GROUP BY c.nombre, p.descripcion, v.referencia
+            ORDER BY total DESC";
+        
+        return self::db()->select($sql);
+    }
+}
+```
+
+## Report Filters
+
+Common filters for reports:
+
+- **Date ranges**: From/to dates
+- **Fiscal exercise**: Accounting period
+- **Warehouse**: Specific location
+- **Customer/Supplier**: Specific entity
+- **Product/Family**: Product filters
+- **Agent**: Sales person
+- **Document series**: Invoice series
+- **Status**: Paid/unpaid, open/closed
+
+## Export Formats
+
+Reports can be exported to:
+
+- **PDF**: Formatted reports
+- **Excel/CSV**: Data analysis
+- **XML**: Tax declarations
+- **JSON**: API integration
+
+## Performance Considerations
+
+<Warning>
+Large date ranges and complex queries can impact performance. Consider:
+- Using appropriate indexes
+- Limiting result sets
+- Caching frequently accessed reports
+- Running heavy reports during off-peak hours
+</Warning>
+
+### Query Optimization
+
+```php
+// Good: Use specific date range
+$where = [
+    new DataBaseWhere('fecha', $startDate, '>='),
+    new DataBaseWhere('fecha', $endDate, '<=')
+];
+
+// Good: Limit results
+$invoices = FacturaCliente::all($where, ['fecha' => 'DESC'], 0, 1000);
+
+// Avoid: Loading all records
+// $allInvoices = FacturaCliente::all(); // BAD!
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Date Ranges">
+    Always specify date ranges for reports to limit data volume. Default to current fiscal period.
+  </Accordion>
+  
+  <Accordion title="Result Limits">
+    Implement pagination or result limits for large datasets. Don't try to display thousands of rows at once.
+  </Accordion>
+  
+  <Accordion title="Aggregation">
+    Perform aggregation in SQL rather than in application code for better performance.
+  </Accordion>
+  
+  <Accordion title="Caching">
+    Cache report results when appropriate, especially for dashboard summaries that don't need real-time data.
+  </Accordion>
+  
+  <Accordion title="Export Options">
+    Always provide export options for reports so users can analyze data in their preferred tools.
+  </Accordion>
+</AccordionGroup>
+
+## Dashboard Widgets
+
+Create summary widgets for dashboards:
+
+- Total sales today/week/month
+- Outstanding receivables
+- Low stock alerts
+- Profit margin trends
+- Top customers
+- Agent performance
+
+```php
+// Example: Sales today
+$today = Tools::date();
+$sql = "SELECT COUNT(*), SUM(total) FROM facturascli WHERE fecha = " . 
+       self::db()->var2str($today);
+$data = self::db()->select($sql);
+```
+
+## Related Documentation
+
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Sales document data sources
+  </Card>
+  <Card title="Accounting" icon="calculator" href="/features/accounting">
+    Financial reporting data
+  </Card>
+  <Card title="Inventory" icon="boxes-stacked" href="/features/inventory">
+    Stock reporting data
+  </Card>
+  <Card title="CRM" icon="users" href="/features/crm">
+    Customer analytics data
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+- Explore existing reports in the Reports menu
+- Create custom report classes for specific needs
+- Set up scheduled report generation
+- Configure dashboard widgets
+- Export reports for external analysis

@@ -1,0 +1,319 @@
+---
+title: Contributing to FacturaScripts
+description: How to contribute to the FacturaScripts project
+icon: code-pull-request
+---
+
+## Welcome Contributors!
+
+FacturaScripts is an open-source project, and we welcome contributions from developers of all skill levels. Whether you're fixing bugs, adding features, improving documentation, or translating the interface, your help is appreciated!
+
+## Ways to Contribute
+
+### Code Contributions
+
+Contribute to the core application:
+- Fix bugs
+- Add new features
+- Improve performance
+- Refactor code
+- Write tests
+
+### Documentation
+
+Help improve the documentation:
+- Fix typos and errors
+- Add examples and tutorials
+- Translate documentation
+- Create video tutorials
+- Improve API documentation
+
+### Translations
+
+Make FacturaScripts available in more languages:
+
+<Card title="Translation Portal" icon="language" href="https://facturascripts.com/traducciones">
+  Contribute translations for your language
+</Card>
+
+### Community Support
+
+Help other users:
+- Answer questions on Discord
+- Help troubleshoot issues
+- Share your knowledge
+- Write blog posts or tutorials
+
+### Testing
+
+Improve quality:
+- Test new releases
+- Report bugs
+- Suggest improvements
+- Write automated tests
+
+## Getting Started
+
+### Setting Up Your Development Environment
+
+1. **Fork the repository**
+   
+   Visit [github.com/NeoRazorX/facturascripts](https://github.com/NeoRazorX/facturascripts) and click the Fork button.
+
+2. **Clone your fork**
+   
+   ```bash
+   git clone https://github.com/YOUR-USERNAME/facturascripts.git
+   cd facturascripts
+   ```
+
+3. **Add upstream remote**
+   
+   ```bash
+   git remote add upstream https://github.com/NeoRazorX/facturascripts.git
+   ```
+
+4. **Install dependencies**
+   
+   ```bash
+   # Install PHP dependencies
+   composer install
+   
+   # Install JavaScript dependencies
+   npm install
+   ```
+
+5. **Create a branch**
+   
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
+
+### Development Workflow
+
+1. **Make your changes**
+   - Write clean, readable code
+   - Follow existing code style
+   - Add comments where needed
+   - Keep changes focused
+
+2. **Test your changes**
+   
+   ```bash
+   # Run PHPUnit tests
+   vendor/bin/phpunit
+   
+   # Run static analysis
+   vendor/bin/phpstan analyse Core
+   ```
+
+3. **Run the development server**
+   
+   ```bash
+   # Using Composer
+   composer dev-server
+   
+   # Or directly
+   php -S localhost:8000 index.php
+   ```
+
+4. **Commit your changes**
+   
+   ```bash
+   git add .
+   git commit -m "Add descriptive commit message"
+   ```
+   
+   Write clear commit messages:
+   - Use present tense ("Add feature" not "Added feature")
+   - Be descriptive but concise
+   - Reference issue numbers if applicable
+
+5. **Push to your fork**
+   
+   ```bash
+   git push origin feature/your-feature-name
+   ```
+
+6. **Create a pull request**
+   
+   Go to your fork on GitHub and click "New Pull Request"
+
+## Pull Request Guidelines
+
+### Before Submitting
+
+- [ ] Code follows the project's style guidelines
+- [ ] All tests pass
+- [ ] New tests are added for new features
+- [ ] Documentation is updated
+- [ ] Commit messages are clear
+- [ ] Changes are focused on a single issue
+
+### Pull Request Description
+
+Include in your PR description:
+- **What** - What does this PR do?
+- **Why** - Why is this change needed?
+- **How** - How does it work?
+- **Testing** - How was it tested?
+- **Screenshots** - If UI changes are involved
+- **Related Issues** - Link to related issues
+
+### Example PR Template
+
+```markdown
+## Description
+Fixes #123 - Add dark mode support
+
+## Changes
+- Added dark mode toggle in settings
+- Implemented CSS variables for theming
+- Updated all components to use theme variables
+
+## Testing
+- Tested on Chrome, Firefox, Safari
+- Verified toggle persists across sessions
+- Checked all pages for theme consistency
+
+## Screenshots
+[Add screenshots here]
+```
+
+## Coding Standards
+
+### PHP Code Style
+
+- Follow PSR-12 coding standards
+- Use meaningful variable and function names
+- Add PHPDoc comments for functions and classes
+- Keep functions small and focused
+- Avoid deep nesting
+
+### JavaScript Code Style
+
+- Use modern ES6+ syntax
+- Follow consistent naming conventions
+- Add comments for complex logic
+- Use semicolons consistently
+
+### Database Changes
+
+- Create migrations for schema changes
+- Test migrations both up and down
+- Document database changes
+- Consider backward compatibility
+
+### Testing
+
+- Write unit tests for new functionality
+- Maintain or improve test coverage
+- Test edge cases
+- Include integration tests where appropriate
+
+## Code Review Process
+
+1. **Submission** - You submit a pull request
+2. **Automated checks** - CI runs tests and analysis
+3. **Review** - Maintainers review your code
+4. **Feedback** - You address any requested changes
+5. **Approval** - PR is approved by maintainer
+6. **Merge** - Code is merged into main branch
+
+### Review Timeline
+
+<Info>
+  Most PRs are reviewed within 1-3 business days. Complex changes may take longer.
+</Info>
+
+## Development Resources
+
+### Documentation
+
+<Card title="Developer Documentation" icon="code" href="https://facturascripts.com/ayuda-dev">
+  Comprehensive developer guides and API reference
+</Card>
+
+### Community
+
+<Card title="Discord Community" icon="discord" href="https://discord.gg/qKm7j9AaJT">
+  Join the developer community on Discord
+</Card>
+
+### Contribution Portal
+
+<Card title="Collaborate" icon="handshake" href="https://facturascripts.com/colabora">
+  Official contribution guidelines
+</Card>
+
+## Plugin Development
+
+Create plugins to extend FacturaScripts:
+
+- Plugins allow you to add features without modifying core code
+- Follow plugin development guidelines
+- Test plugins thoroughly
+- Document plugin usage
+- Share plugins with the community
+
+See the developer documentation for detailed plugin development guides.
+
+## Reporting Issues
+
+Before creating an issue:
+
+1. **Search existing issues** - Check if it's already reported
+2. **Use latest version** - Verify the issue exists in the latest release
+3. **Gather information** - Collect version info and error logs
+
+See the [support guide](/resources/support) for details on reporting bugs.
+
+## Recognition
+
+Contributors are recognized:
+- In release notes
+- On the contributors page
+- In the GitHub contributors list
+- Through community acknowledgment
+
+## Legal
+
+### License
+
+FacturaScripts is licensed under LGPL. By contributing, you agree that your contributions will be licensed under the same license.
+
+### Contributor Agreement
+
+By submitting code, you certify that:
+- You have the right to submit the code
+- You agree to license it under LGPL
+- Your contribution is your original work
+
+## Questions?
+
+If you have questions about contributing:
+
+- Ask in the [Discord community](https://discord.gg/qKm7j9AaJT)
+- Check the [FAQ](/resources/faq)
+- Visit the [contribution portal](https://facturascripts.com/colabora)
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Support" icon="life-ring" href="/resources/support">
+    Get help and ask questions
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common development issues
+  </Card>
+  <Card title="Changelog" icon="clock-rotate-left" href="/resources/changelog">
+    See what's new
+  </Card>
+  <Card title="Roadmap" icon="map" href="/resources/roadmap">
+    View future plans
+  </Card>
+</CardGroup>
+
+## Thank You!
+
+Thank you for contributing to FacturaScripts! Every contribution, no matter how small, helps make the project better for everyone.

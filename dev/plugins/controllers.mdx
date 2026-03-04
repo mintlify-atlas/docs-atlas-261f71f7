@@ -1,0 +1,591 @@
+---
+title: Creating Controllers
+description: Build custom controllers to handle requests and implement business logic in FacturaScripts
+---
+
+Controllers are the entry points for handling HTTP requests in FacturaScripts. They manage the flow between models, views, and business logic.
+
+## Controller Base Class
+
+All controllers extend from `FacturaScripts\Core\Base\Controller` which provides:
+
+- Request/response handling
+- User authentication and permissions
+- Database access
+- Template rendering
+- Session management
+
+**Location:** `Core/Base/Controller.php`
+
+## Creating a Basic Controller
+
+### Step 1: Create Controller File
+
+Create `Controller/MyController.php` in your plugin:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Controller;
+
+use FacturaScripts\Core\Base\Controller;
+use FacturaScripts\Core\Base\ControllerPermissions;
+use FacturaScripts\Core\Model\User;
+use FacturaScripts\Core\Response;
+
+class MyController extends Controller
+{
+    /**
+     * Executed for authenticated users
+     */
+    public function privateCore(&$response, $user, $permissions)
+    {
+        parent::privateCore($response, $user, $permissions);
+        
+        // Your business logic here
+        $action = $this->request->get('action', '');
+        if ($action === 'save') {
+            $this->saveAction();
+        }
+    }
+
+    /**
+     * Executed for public access (no login required)
+     */
+    public function publicCore(&$response)
+    {
+        parent::publicCore($response);
+        
+        // Public logic here
+    }
+
+    /**
+     * Returns page metadata for menu and title
+     */
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'My Controller';
+        $data['icon'] = 'fa-solid fa-star';
+        $data['menu'] = 'admin';
+        $data['submenu'] = 'tools';
+        $data['showonmenu'] = true;
+        $data['ordernum'] = 100;
+        return $data;
+    }
+
+    private function saveAction()
+    {
+        // Handle save logic
+    }
+}
+```
+
+### Step 2: Access Your Controller
+
+Once created, your controller is accessible at:
+
+```
+https://your-domain.com/MyController
+```
+
+FacturaScripts automatically creates routes for all controllers.
+
+## Controller Properties
+
+The base `Controller` class provides these properties:
+
+### Protected Properties
+
+```php
+class Controller
+{
+    /** @var DataBase Database connection */
+    protected $dataBase;
+    
+    /** @var Response HTTP response object */
+    protected $response;
+}
+```
+
+### Public Properties
+
+```php
+class Controller
+{
+    /** @var Request HTTP request object */
+    public $request;
+    
+    /** @var User|false Authenticated user */
+    public $user;
+    
+    /** @var Empresa Selected company */
+    public $empresa;
+    
+    /** @var ControllerPermissions User permissions */
+    public $permissions;
+    
+    /** @var string Page title */
+    public $title;
+    
+    /** @var string Controller URI */
+    public $uri;
+    
+    /** @var MultiRequestProtection CSRF protection */
+    public $multiRequestProtection;
+}
+```
+
+## Core Methods
+
+### privateCore()
+
+Executed when a user is authenticated. This is where most business logic goes.
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Check permissions
+    if (!$permissions->allowUpdate) {
+        Tools::log()->warning('no-permission-to-update');
+        return;
+    }
+    
+    // Handle form submission
+    if ($this->request->method() === 'POST') {
+        $this->handlePost();
+    }
+    
+    // Load data for view
+    $this->loadData();
+}
+```
+
+### publicCore()
+
+Executed for public (unauthenticated) access:
+
+```php
+public function publicCore(&$response)
+{
+    parent::publicCore($response);
+    
+    // No authentication required
+    // Typically used for login pages, public APIs, etc.
+    $this->setTemplate('PublicTemplate');
+}
+```
+
+<Warning>
+By default, controllers require authentication. Only use `publicCore()` for pages that should be accessible without login.
+</Warning>
+
+### getPageData()
+
+Defines page metadata for navigation and display:
+
+```php
+public function getPageData(): array
+{
+    $data = parent::getPageData();
+    $data['name'] = 'MyController';           // Internal name
+    $data['title'] = 'My Custom Page';        // Display title
+    $data['icon'] = 'fa-solid fa-chart-bar';  // FontAwesome icon
+    $data['menu'] = 'reports';                // Main menu group
+    $data['submenu'] = 'sales';               // Submenu group
+    $data['showonmenu'] = true;               // Show in sidebar
+    $data['ordernum'] = 50;                   // Sort order (lower = higher)
+    return $data;
+}
+```
+
+**Menu Groups:**
+- `admin` - Administration
+- `accounting` - Accounting
+- `reports` - Reports
+- `sales` - Sales
+- `purchases` - Purchases
+- `warehouse` - Warehouse
+
+## Working with Requests
+
+### Getting Request Data
+
+```php
+// GET parameter
+$id = $this->request->get('id', 0);
+
+// POST parameter
+$name = $this->request->post('name', '');
+
+// Either GET or POST
+$value = $this->request->inputOrQuery('key', 'default');
+
+// Request method
+$method = $this->request->method(); // GET, POST, PUT, DELETE
+
+// Check if POST request
+if ($this->request->isMethod('POST')) {
+    // Handle POST
+}
+
+// Headers
+$userAgent = $this->request->header('User-Agent');
+
+// Cookies
+$value = $this->request->cookie('name', 'default');
+```
+
+### Query String Parameters
+
+```php
+// Build URL with parameters
+$url = $this->url() . '?action=edit&id=' . $id;
+
+// Check for specific action
+$action = $this->request->query('action', '');
+switch ($action) {
+    case 'edit':
+        $this->editAction();
+        break;
+    case 'delete':
+        $this->deleteAction();
+        break;
+}
+```
+
+## Working with Responses
+
+### Setting Headers
+
+```php
+// Custom header
+$this->response->header('X-Custom-Header', 'value');
+
+// Content type
+$this->response->header('Content-Type', 'application/json');
+
+// Cache control
+$this->response->header('Cache-Control', 'no-cache');
+```
+
+### Redirects
+
+```php
+// Immediate redirect
+$this->redirect('/OtherController');
+
+// Redirect with delay (in seconds)
+$this->redirect('/OtherController', 3);
+
+// Redirect to external URL
+$this->redirect('https://example.com');
+```
+
+### JSON Responses
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Disable template rendering
+    $this->setTemplate(false);
+    
+    // Set JSON content type
+    $this->response->header('Content-Type', 'application/json');
+    
+    // Output JSON
+    $data = ['status' => 'success', 'message' => 'Operation completed'];
+    echo json_encode($data);
+}
+```
+
+### File Downloads
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    $this->setTemplate(false);
+    $this->response->header('Content-Type', 'application/pdf');
+    $this->response->header('Content-Disposition', 'attachment; filename="report.pdf"');
+    
+    // Output file content
+    readfile($filePath);
+}
+```
+
+## Database Operations
+
+### Using the Database Object
+
+```php
+// Access database
+$sql = 'SELECT * FROM customers WHERE active = true';
+$data = $this->dataBase->select($sql);
+
+// With parameters (safe from SQL injection)
+$sql = 'SELECT * FROM customers WHERE id = ?';
+$data = $this->dataBase->select($sql, [$customerId]);
+
+// Execute statement
+$sql = 'UPDATE customers SET active = false WHERE id = ?';
+$this->dataBase->exec($sql, [$customerId]);
+```
+
+### Using Models
+
+```php
+use FacturaScripts\Dinamic\Model\Cliente;
+
+// Find by primary key
+$cliente = Cliente::find($id);
+
+// Find by conditions
+$cliente = Cliente::findWhere(['email' => 'user@example.com']);
+
+// Get all with conditions
+$clientes = Cliente::all(
+    ['active' => true],           // where
+    ['name' => 'ASC'],           // order
+    0,                           // offset
+    50                           // limit
+);
+
+// Count records
+$total = Cliente::count(['active' => true]);
+```
+
+## Template Rendering
+
+### Using Default Template
+
+By default, FacturaScripts looks for `View/ControllerName.html.twig`:
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Data available in template as {{ myData }}
+    $this->myData = 'Hello World';
+}
+```
+
+### Custom Template
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Use View/CustomTemplate.html.twig
+    $this->setTemplate('CustomTemplate');
+}
+```
+
+### No Template (JSON/API)
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Disable template rendering
+    $this->setTemplate(false);
+    
+    // Output raw content
+    echo json_encode(['status' => 'ok']);
+}
+```
+
+## Permissions
+
+The `$permissions` object provides access control:
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    // Check permissions
+    if (!$permissions->allowAccess) {
+        Tools::log()->warning('access-denied');
+        $this->redirect('/Dashboard');
+        return;
+    }
+    
+    if (!$permissions->allowUpdate) {
+        Tools::log()->warning('no-update-permission');
+        return;
+    }
+    
+    // Available permission flags:
+    // - allowAccess: Can view the page
+    // - allowUpdate: Can modify data
+    // - allowDelete: Can delete data
+    // - onlyOwner: Can only access own data
+}
+```
+
+## CSRF Protection
+
+Protect forms from Cross-Site Request Forgery:
+
+```php
+public function privateCore(&$response, $user, $permissions)
+{
+    parent::privateCore($response, $user, $permissions);
+    
+    if ($this->request->isMethod('POST')) {
+        // Validate token
+        if (!$this->validateFormToken()) {
+            return;
+        }
+        
+        // Process form
+        $this->saveData();
+    }
+    
+    // Generate new token for form
+    $this->formToken = $this->multiRequestProtection->newToken();
+}
+```
+
+In your template:
+
+```html
+<form method="post">
+    <input type="hidden" name="multireqtoken" value="{{ fsc.formToken }}" />
+    <!-- form fields -->
+</form>
+```
+
+## Logging
+
+```php
+use FacturaScripts\Core\Tools;
+
+// Log levels
+Tools::log()->info('info-message');
+Tools::log()->notice('notice-message');
+Tools::log()->warning('warning-message');
+Tools::log()->error('error-message');
+Tools::log()->critical('critical-error');
+
+// With parameters
+Tools::log()->error('customer-not-found', ['%id%' => $customerId]);
+
+// Custom log channel
+Tools::log('mylog')->info('custom-message');
+```
+
+## Complete Example
+
+Here's a complete controller with CRUD operations:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Controller;
+
+use FacturaScripts\Core\Base\Controller;
+use FacturaScripts\Core\Base\ControllerPermissions;
+use FacturaScripts\Core\Model\User;
+use FacturaScripts\Core\Response;
+use FacturaScripts\Core\Tools;
+use FacturaScripts\Plugins\YourPlugin\Model\MyModel;
+
+class MyController extends Controller
+{
+    public $model;
+    public $formToken;
+
+    public function privateCore(&$response, $user, $permissions)
+    {
+        parent::privateCore($response, $user, $permissions);
+        
+        // Load model
+        $id = $this->request->get('id', 0);
+        $this->model = MyModel::find($id) ?? new MyModel();
+        
+        // Handle actions
+        $action = $this->request->post('action', '');
+        switch ($action) {
+            case 'save':
+                $this->saveAction();
+                break;
+            case 'delete':
+                $this->deleteAction();
+                break;
+        }
+        
+        // Generate CSRF token
+        $this->formToken = $this->multiRequestProtection->newToken();
+    }
+
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'My Model Editor';
+        $data['icon'] = 'fa-solid fa-edit';
+        $data['menu'] = 'admin';
+        return $data;
+    }
+
+    private function saveAction()
+    {
+        if (!$this->validateFormToken()) {
+            return;
+        }
+        
+        if (!$this->permissions->allowUpdate) {
+            Tools::log()->warning('no-update-permission');
+            return;
+        }
+        
+        $this->model->name = $this->request->post('name', '');
+        $this->model->description = $this->request->post('description', '');
+        
+        if ($this->model->save()) {
+            Tools::log()->notice('record-updated-correctly');
+            $this->redirect($this->url() . '?id=' . $this->model->id);
+        } else {
+            Tools::log()->error('record-save-error');
+        }
+    }
+
+    private function deleteAction()
+    {
+        if (!$this->validateFormToken()) {
+            return;
+        }
+        
+        if (!$this->permissions->allowDelete) {
+            Tools::log()->warning('no-delete-permission');
+            return;
+        }
+        
+        if ($this->model->delete()) {
+            Tools::log()->notice('record-deleted-correctly');
+            $this->redirect('/MyController');
+        } else {
+            Tools::log()->error('record-delete-error');
+        }
+    }
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Models" icon="database" href="/dev/plugins/models">
+    Learn to create data models
+  </Card>
+  
+  <Card title="Views" icon="eye" href="/dev/plugins/views">
+    Create user interfaces
+  </Card>
+</CardGroup>

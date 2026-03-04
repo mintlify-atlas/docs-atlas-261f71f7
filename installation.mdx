@@ -1,0 +1,397 @@
+---
+title: Installation
+description: Step-by-step guide to install FacturaScripts on your server
+---
+
+This guide covers the installation process for FacturaScripts. You can install it on various environments including local development, shared hosting, or dedicated servers.
+
+<Warning>
+  This repository contains the **development version** of FacturaScripts. For production use, download the stable release from [facturascripts.com/descargar](https://facturascripts.com/descargar).
+</Warning>
+
+## Prerequisites
+
+Before installing, ensure your system meets the [system requirements](/system-requirements):
+
+- PHP 8.0 or higher
+- MySQL 5.7+ / MariaDB 10.2+ or PostgreSQL 9.5+
+- Composer
+- Node.js & npm (for assets compilation)
+- Web server (Apache, Nginx, or PHP built-in)
+
+## Installation Methods
+
+<Tabs>
+  <Tab title="From Source (Development)">
+    ### Clone the Repository
+
+    ```bash
+    # Clone the repository
+    git clone https://github.com/NeoRazorX/facturascripts.git
+    cd facturascripts
+    ```
+
+    ### Install Dependencies
+
+    ```bash
+    # Install PHP dependencies
+    composer install
+
+    # Install JavaScript dependencies
+    npm install
+    ```
+
+    ### Create Configuration File
+
+    Create a `config.php` file in the root directory:
+
+    ```php
+    <?php
+    // Database configuration
+    define('FS_DB_TYPE', 'mysql'); // or 'postgresql'
+    define('FS_DB_HOST', 'localhost');
+    define('FS_DB_PORT', '3306'); // 5432 for PostgreSQL
+    define('FS_DB_NAME', 'facturascripts');
+    define('FS_DB_USER', 'your_database_user');
+    define('FS_DB_PASS', 'your_database_password');
+
+    // Timezone
+    define('FS_TIMEZONE', 'Europe/Madrid');
+
+    // Debugging (disable in production)
+    define('FS_DEBUG', true);
+    ```
+
+    ### Set Permissions
+
+    ```bash
+    # Make directories writable
+    chmod -R 755 .
+    chmod -R 777 MyFiles
+    ```
+  </Tab>
+
+  <Tab title="Stable Release (Production)">
+    ### Download Stable Version
+
+    For production environments, download the latest stable release:
+
+    1. Visit [facturascripts.com/descargar](https://facturascripts.com/descargar)
+    2. Download the latest stable ZIP file
+    3. Extract to your web server directory
+
+    ### Upload to Server
+
+    ```bash
+    # Extract the archive
+    unzip facturascripts-*.zip
+
+    # Upload to your server via FTP/SFTP
+    # Or extract directly on the server
+    ```
+
+    ### Configure Database
+
+    Create a `config.php` file (see Development tab for configuration options).
+
+    ### Set Permissions
+
+    ```bash
+    chmod -R 755 .
+    chmod -R 777 MyFiles
+    ```
+  </Tab>
+</Tabs>
+
+## Database Setup
+
+### Create Database
+
+<Tabs>
+  <Tab title="MySQL/MariaDB">
+    ```sql
+    CREATE DATABASE facturascripts CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CREATE USER 'fs_user'@'localhost' IDENTIFIED BY 'secure_password';
+    GRANT ALL PRIVILEGES ON facturascripts.* TO 'fs_user'@'localhost';
+    FLUSH PRIVILEGES;
+    ```
+  </Tab>
+
+  <Tab title="PostgreSQL">
+    ```sql
+    CREATE DATABASE facturascripts ENCODING 'UTF8';
+    CREATE USER fs_user WITH ENCRYPTED PASSWORD 'secure_password';
+    GRANT ALL PRIVILEGES ON DATABASE facturascripts TO fs_user;
+    ```
+  </Tab>
+</Tabs>
+
+## Web Server Configuration
+
+<Tabs>
+  <Tab title="PHP Built-in Server (Development)">
+    The easiest way to run FacturaScripts for development:
+
+    ```bash
+    # Start the development server
+    php -S localhost:8000 index.php
+    ```
+
+    Or use the Composer script:
+
+    ```bash
+    composer dev-server
+    ```
+
+    Access the application at `http://localhost:8000`
+
+    <Note>
+      The PHP built-in server is **not suitable for production** use. Use Apache or Nginx for production deployments.
+    </Note>
+  </Tab>
+
+  <Tab title="Apache">
+    ### Virtual Host Configuration
+
+    ```apache
+    <VirtualHost *:80>
+        ServerName facturascripts.local
+        DocumentRoot /var/www/facturascripts
+
+        <Directory /var/www/facturascripts>
+            Options -Indexes +FollowSymLinks
+            AllowOverride All
+            Require all granted
+        </Directory>
+
+        ErrorLog ${APACHE_LOG_DIR}/facturascripts_error.log
+        CustomLog ${APACHE_LOG_DIR}/facturascripts_access.log combined
+    </VirtualHost>
+    ```
+
+    ### Enable mod_rewrite
+
+    ```bash
+    sudo a2enmod rewrite
+    sudo systemctl restart apache2
+    ```
+
+    ### .htaccess File
+
+    Copy the sample htaccess file:
+
+    ```bash
+    cp htaccess-sample .htaccess
+    ```
+  </Tab>
+
+  <Tab title="Nginx">
+    ### Nginx Configuration
+
+    ```nginx
+    server {
+        listen 80;
+        server_name facturascripts.local;
+        root /var/www/facturascripts;
+        index index.php;
+
+        location / {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location ~ \.php$ {
+            include snippets/fastcgi-php.conf;
+            fastcgi_pass unix:/var/run/php/php8.0-fpm.sock;
+            fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+            include fastcgi_params;
+        }
+
+        location ~ /\.(?!well-known).* {
+            deny all;
+        }
+    }
+    ```
+
+    ### Restart Nginx
+
+    ```bash
+    sudo systemctl restart nginx
+    ```
+  </Tab>
+</Tabs>
+
+## Initial Setup
+
+<Steps>
+  <Step title="Access the Setup Wizard">
+    Open your browser and navigate to your FacturaScripts installation:
+
+    - Development: `http://localhost:8000`
+    - Production: `http://yourdomain.com`
+
+    You'll be redirected to the setup wizard.
+  </Step>
+
+  <Step title="Create Admin Account">
+    The setup wizard will prompt you to create an administrator account:
+
+    - **Username**: Choose a secure username (not "admin")
+    - **Password**: Use a strong password (8+ characters, letters + numbers)
+    - **Email**: Your email address for notifications
+  </Step>
+
+  <Step title="Configure Company">
+    Enter your company details:
+
+    - Company name
+    - Tax ID / VAT number
+    - Address and contact information
+    - Default currency
+  </Step>
+
+  <Step title="Set Up Accounting">
+    Configure accounting preferences:
+
+    - Fiscal year start date
+    - Chart of accounts (country-specific templates available)
+    - Tax rates and VAT configuration
+    - Payment methods
+  </Step>
+
+  <Step title="Complete Setup">
+    Review your configuration and click **Complete Setup**.
+
+    FacturaScripts will:
+    - Create the database schema
+    - Import the chart of accounts
+    - Set up default data
+    - Create your admin user
+
+    <Info>
+      The initial setup may take 30-60 seconds depending on your server performance.
+    </Info>
+  </Step>
+</Steps>
+
+## Post-Installation
+
+### Verify Installation
+
+After setup completes, you should:
+
+1. ✅ Log in with your admin credentials
+2. ✅ Access the Dashboard
+3. ✅ Check that the database connection is working
+4. ✅ Verify file permissions (MyFiles directory should be writable)
+
+### Recommended Settings
+
+<Accordion title="Production Security">
+  For production environments, update your `config.php`:
+
+  ```php
+  // Disable debugging
+  define('FS_DEBUG', false);
+
+  // Set secure cookie settings
+  define('FS_COOKIES_HTTPONLY', true);
+  define('FS_COOKIES_SECURE', true); // Only if using HTTPS
+
+  // Limit login attempts
+  define('FS_MAX_LOGIN_ATTEMPTS', 5);
+  ```
+</Accordion>
+
+<Accordion title="Performance Optimization">
+  Improve performance:
+
+  ```php
+  // Enable caching
+  define('FS_CACHE_ENABLED', true);
+  define('FS_CACHE_LIFETIME', 3600);
+
+  // Use FastCGI
+  define('FS_FASTCGI', true);
+  ```
+</Accordion>
+
+<Accordion title="Email Configuration">
+  Configure email for notifications:
+
+  1. Go to **Admin Panel** → **Settings** → **Email Configuration**
+  2. Enter your SMTP settings
+  3. Test the email configuration
+</Accordion>
+
+### Install Plugins
+
+Extend FacturaScripts with plugins:
+
+1. Go to **Admin Panel** → **Plugins**
+2. Browse available plugins
+3. Click **Install** on desired plugins
+4. Enable the plugin after installation
+
+See the [Plugin Management](/admin/plugins) guide for more details.
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Database Connection Errors">
+    If you see database connection errors:
+
+    - Verify database credentials in `config.php`
+    - Ensure the database exists and is accessible
+    - Check that the database user has proper permissions
+    - Verify `FS_DB_TYPE` matches your database server (mysql or postgresql)
+  </Accordion>
+
+  <Accordion title="Permission Denied Errors">
+    If you encounter permission errors:
+
+    ```bash
+    # Set correct permissions
+    chmod -R 755 .
+    chmod -R 777 MyFiles
+
+    # Ensure web server user owns the files
+    sudo chown -R www-data:www-data .
+    ```
+  </Accordion>
+
+  <Accordion title="White Screen / 500 Errors">
+    If you see a blank page or 500 error:
+
+    - Enable error display in `config.php`: `define('FS_DEBUG', true);`
+    - Check PHP error logs
+    - Verify all PHP extensions are installed (see [System Requirements](/system-requirements))
+    - Ensure PHP memory limit is at least 128MB
+  </Accordion>
+
+  <Accordion title="Assets Not Loading">
+    If CSS/JS files are not loading:
+
+    ```bash
+    # Run npm install to compile assets
+    npm install
+    npm run build
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Create your first invoice
+  </Card>
+  <Card title="User Guides" icon="book" href="/guides/creating-invoices">
+    Learn how to use FacturaScripts
+  </Card>
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure system settings
+  </Card>
+  <Card title="Support" icon="life-ring" href="/resources/support">
+    Get help from the community
+  </Card>
+</CardGroup>

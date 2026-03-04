@@ -1,0 +1,730 @@
+---
+title: Extension System
+description: Extend core functionality using the extension system and hooks
+---
+
+## Overview
+
+FacturaScripts provides a powerful extension system that allows plugins to modify the behavior of core classes without modifying their source code. This is achieved through:
+
+- **ExtensionsTrait** - Dynamic method injection system
+- **InitClass** - Plugin initialization and extension registration
+- **Extension pattern** - Organized extension structure
+
+## How Extensions Work
+
+Extensions allow you to:
+- Add new methods to existing classes
+- Override existing method behavior
+- Hook into lifecycle events (save, delete, etc.)
+- Modify data before/after operations
+
+### Extension Architecture
+
+The extension system uses PHP's magic methods and closures:
+
+1. Extensions are registered via `addExtension()`
+2. Extension methods return closures
+3. Closures are bound to the target class context
+4. Extensions can be prioritized (0-1000)
+
+## Creating Extensions
+
+### Plugin Structure
+
+Extensions are organized in your plugin's `Extension` directory:
+
+```
+Plugins/MyPlugin/
+├── Extension/
+│   ├── Model/
+│   │   └── Cliente.php
+│   ├── Controller/
+│   │   └── EditController.php
+│   └── Model/
+│       └── Base/
+│           └── BusinessDocument.php
+├── Init.php
+└── facturascripts.ini
+```
+
+### Basic Extension Example
+
+Extend the `Cliente` (Customer) model:
+
+**Plugins/MyPlugin/Extension/Model/Cliente.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Model;
+
+use Closure;
+
+class Cliente
+{
+    /**
+     * Add a custom method to calculate customer lifetime value
+     */
+    public function getLifetimeValue(): Closure
+    {
+        return function() {
+            // $this refers to the Cliente model instance
+            return DbQuery::table('facturascli')
+                ->whereEq('codcliente', $this->codcliente)
+                ->sum('total');
+        };
+    }
+    
+    /**
+     * Add a method to check if customer is VIP
+     */
+    public function isVIP(): Closure
+    {
+        return function() {
+            return $this->getLifetimeValue() > 10000;
+        };
+    }
+}
+```
+
+### Registering Extensions
+
+Register your extensions in the plugin's `Init.php`:
+
+**Plugins/MyPlugin/Init.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin;
+
+use FacturaScripts\Core\Template\InitClass;
+use FacturaScripts\Plugins\MyPlugin\Extension\Model\Cliente;
+
+class Init extends InitClass
+{
+    public function init(): void
+    {
+        // Load extension for Cliente model
+        $this->loadExtension(new Cliente());
+    }
+    
+    public function update(): void
+    {
+        // Code executed when plugin is enabled or updated
+    }
+    
+    public function uninstall(): void
+    {
+        // Cleanup code when plugin is uninstalled
+    }
+}
+```
+
+### Using Extended Methods
+
+Once registered, the extended methods can be called on model instances:
+
+```php
+use FacturaScripts\Dinamic\Model\Cliente;
+
+$cliente = new Cliente();
+$cliente->loadFromCode('CUST001');
+
+// Call custom method
+$lifetimeValue = $cliente->getLifetimeValue();
+echo "Customer lifetime value: {$lifetimeValue}";
+
+if ($cliente->isVIP()) {
+    echo "This is a VIP customer!";
+}
+```
+
+## Extension Hooks
+
+### Model Lifecycle Hooks
+
+Intercept model operations:
+
+```php
+class Cliente
+{
+    /**
+     * Called before saving
+     */
+    public function saveInsert(): Closure
+    {
+        return function(array $values) {
+            // Modify values before insert
+            if (empty($values['fechaalta'])) {
+                $values['fechaalta'] = date('d-m-Y');
+            }
+            return $values;
+        };
+    }
+    
+    /**
+     * Called before updating
+     */
+    public function saveUpdate(): Closure
+    {
+        return function(array $values) {
+            // Add modified timestamp
+            $values['fecha_modificacion'] = date('d-m-Y H:i:s');
+            return $values;
+        };
+    }
+    
+    /**
+     * Called before delete
+     */
+    public function delete(): Closure
+    {
+        return function() {
+            // Prevent deletion of VIP customers
+            if ($this->isVIP()) {
+                Tools::log()->warning('Cannot delete VIP customer');
+                return false;
+            }
+            return null; // Continue with normal deletion
+        };
+    }
+    
+    /**
+     * Called after clear (before loading new data)
+     */
+    public function clear(): Closure
+    {
+        return function() {
+            // Initialize custom fields
+            $this->custom_field = '';
+            return null;
+        };
+    }
+}
+```
+
+### Validation Hooks
+
+```php
+class Producto
+{
+    /**
+     * Add custom validation
+     */
+    public function test(): Closure
+    {
+        return function() {
+            // Custom validation logic
+            if ($this->precio < 0) {
+                Tools::log()->error('Price cannot be negative');
+                return false;
+            }
+            
+            // Check custom business rules
+            if ($this->stock < $this->stockmin) {
+                Tools::log()->warning('Stock below minimum');
+            }
+            
+            return null; // Continue with normal validation
+        };
+    }
+}
+```
+
+## Extending Business Documents
+
+Business documents (invoices, orders, etc.) can be extended at once:
+
+### Extend All Business Documents
+
+**Extension/Model/Base/BusinessDocument.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Model\Base;
+
+use Closure;
+
+class BusinessDocument
+{
+    /**
+     * Add custom field calculation
+     */
+    public function calculateCustomTotal(): Closure
+    {
+        return function() {
+            // Calculate custom total with special logic
+            $total = $this->neto;
+            
+            // Add custom surcharge for international customers
+            if ($this->codpais !== 'ESP') {
+                $total *= 1.05; // 5% surcharge
+            }
+            
+            return $total;
+        };
+    }
+    
+    /**
+     * Hook into save to add custom processing
+     */
+    public function save(): Closure
+    {
+        return function() {
+            // Custom logic before saving any business document
+            if ($this->total > 10000) {
+                // Send notification for large orders
+                $this->sendNotification('Large order detected');
+            }
+            
+            return null; // Continue with normal save
+        };
+    }
+}
+```
+
+This extension applies to:
+- `AlbaranCliente` / `AlbaranProveedor`
+- `FacturaCliente` / `FacturaProveedor`
+- `PedidoCliente` / `PedidoProveedor`
+- `PresupuestoCliente` / `PresupuestoProveedor`
+
+### Extend Sales Documents Only
+
+**Extension/Model/Base/SalesDocument.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Model\Base;
+
+use Closure;
+
+class SalesDocument
+{
+    public function calculateCommission(): Closure
+    {
+        return function() {
+            // Commission for sales agents
+            if (empty($this->codagente)) {
+                return 0;
+            }
+            
+            return $this->neto * 0.03; // 3% commission
+        };
+    }
+}
+```
+
+Applies to: `AlbaranCliente`, `FacturaCliente`, `PedidoCliente`, `PresupuestoCliente`
+
+### Extend Purchase Documents Only
+
+**Extension/Model/Base/PurchaseDocument.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Model\Base;
+
+use Closure;
+
+class PurchaseDocument
+{
+    public function checkBudget(): Closure
+    {
+        return function() {
+            // Check if purchase exceeds budget
+            $monthlyTotal = $this->getMonthlyPurchases();
+            return $monthlyTotal + $this->total <= $this->getBudgetLimit();
+        };
+    }
+}
+```
+
+Applies to: `AlbaranProveedor`, `FacturaProveedor`, `PedidoProveedor`, `PresupuestoProveedor`
+
+## Extending Controllers
+
+### Extend All Edit Controllers
+
+**Extension/Controller/EditController.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Controller;
+
+use Closure;
+
+class EditController
+{
+    /**
+     * Add custom action to all edit controllers
+     */
+    public function execPreviousAction(): Closure
+    {
+        return function($action) {
+            // Log all actions
+            Tools::log()->info('Action executed: ' . $action);
+            return null;
+        };
+    }
+    
+    /**
+     * Add custom data to all views
+     */
+    public function loadData(): Closure
+    {
+        return function($viewName, $view) {
+            // Add custom data
+            $view->custom_data = 'Custom value';
+            return null;
+        };
+    }
+}
+```
+
+### Extend All List Controllers
+
+**Extension/Controller/ListController.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Controller;
+
+use Closure;
+
+class ListController
+{
+    /**
+     * Add custom filter to all list views
+     */
+    public function createViews(): Closure
+    {
+        return function() {
+            foreach ($this->views as $viewName => $view) {
+                // Add custom filter
+                $view->addFilter('my-custom-filter', [
+                    'label' => 'Custom Filter',
+                    'field' => 'custom_field'
+                ]);
+            }
+            return null;
+        };
+    }
+}
+```
+
+### Extend Specific Controller
+
+**Extension/Controller/EditCliente.php:**
+```php
+<?php
+namespace FacturaScripts\Plugins\MyPlugin\Extension\Controller;
+
+use Closure;
+
+class EditCliente
+{
+    /**
+     * Add custom tab to customer edit page
+     */
+    public function createViews(): Closure
+    {
+        return function() {
+            $this->addHtmlView('MyCustomTab', 'MyPlugin/Tab/CustomerStats');
+            return null;
+        };
+    }
+}
+```
+
+## Extension Priority
+
+When multiple extensions implement the same method, priority determines execution order:
+
+```php
+// In Init.php
+public function init(): void
+{
+    // Low priority (executes last)
+    $this->loadExtension(new Extension1(), 10);
+    
+    // Medium priority (default)
+    $this->loadExtension(new Extension2(), 100);
+    
+    // High priority (executes first)
+    $this->loadExtension(new Extension3(), 500);
+}
+```
+
+Priority range: 0-1000 (higher = executes first)
+
+## Pipe Methods
+
+The `pipe()` method allows multiple extensions to process data sequentially:
+
+```php
+class Cliente
+{
+    public function calculateDiscount(): Closure
+    {
+        return function($total) {
+            // First extension
+            if ($this->isVIP()) {
+                return $total * 0.90; // 10% discount
+            }
+            return null; // Pass to next extension
+        };
+    }
+}
+
+// Another plugin's extension
+class Cliente
+{
+    public function calculateDiscount(): Closure
+    {
+        return function($total) {
+            // Second extension
+            if ($this->hasLoyaltyCard()) {
+                return $total * 0.95; // 5% discount
+            }
+            return null;
+        };
+    }
+}
+
+// Usage
+$discountedTotal = $cliente->pipe('calculateDiscount', $total);
+```
+
+### PipeFalse Method
+
+Stop execution if any extension returns `false`:
+
+```php
+class Cliente
+{
+    public function canDelete(): Closure
+    {
+        return function() {
+            if ($this->hasActiveInvoices()) {
+                return false; // Block deletion
+            }
+            return null; // Continue checking
+        };
+    }
+}
+
+// Usage
+if ($cliente->pipeFalse('canDelete') === false) {
+    echo "Cannot delete customer";
+}
+```
+
+## Auto-Loading Extensions
+
+The `loadExtension()` method automatically targets the correct classes:
+
+```php
+public function init(): void
+{
+    // Extends \FacturaScripts\Dinamic\Model\Cliente
+    $this->loadExtension(new Extension\Model\Cliente());
+    
+    // Extends all sales documents
+    $this->loadExtension(new Extension\Model\Base\SalesDocument());
+    
+    // Extends all Edit* controllers
+    $this->loadExtension(new Extension\Controller\EditController());
+    
+    // Extends all List* controllers
+    $this->loadExtension(new Extension\Controller\ListController());
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Return null to continue">
+    Extensions should return `null` to allow normal execution:
+    
+    ```php
+    public function save(): Closure
+    {
+        return function() {
+            // Do custom logic
+            $this->doCustomStuff();
+            
+            // Return null to continue with normal save
+            return null;
+        };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Return false to stop">
+    Return `false` to prevent the operation:
+    
+    ```php
+    public function delete(): Closure
+    {
+        return function() {
+            if ($this->isProtected()) {
+                return false; // Prevent deletion
+            }
+            return null; // Allow deletion
+        };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use meaningful method names">
+    Choose descriptive names for extension methods:
+    
+    ```php
+    // Good
+    public function calculateShippingCost(): Closure
+    public function isEligibleForDiscount(): Closure
+    public function sendNotificationEmail(): Closure
+    
+    // Bad
+    public function calc(): Closure
+    public function check(): Closure
+    public function send(): Closure
+    ```
+  </Accordion>
+
+  <Accordion title="Document your extensions">
+    Add PHPDoc comments to extension methods:
+    
+    ```php
+    /**
+     * Calculate customer lifetime value
+     * 
+     * @return float Total amount spent by customer
+     */
+    public function getLifetimeValue(): Closure
+    {
+        return function() {
+            // Implementation
+        };
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Handle errors gracefully">
+    Catch exceptions in extensions:
+    
+    ```php
+    public function save(): Closure
+    {
+        return function() {
+            try {
+                $this->doSomethingRisky();
+            } catch (Exception $e) {
+                Tools::log()->error($e->getMessage());
+                return false;
+            }
+            return null;
+        };
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Common Extension Patterns
+
+### Adding Custom Fields
+
+```php
+class Cliente
+{
+    public function clear(): Closure
+    {
+        return function() {
+            // Initialize custom fields
+            $this->custom_rating = 0;
+            $this->custom_tags = [];
+            return null;
+        };
+    }
+}
+```
+
+### Logging Changes
+
+```php
+class Producto
+{
+    public function saveUpdate(): Closure
+    {
+        return function(array $values) {
+            // Log price changes
+            if (isset($values['precio']) && $values['precio'] != $this->precio) {
+                $this->logPriceChange($this->precio, $values['precio']);
+            }
+            return $values;
+        };
+    }
+}
+```
+
+### Sending Notifications
+
+```php
+class FacturaCliente
+{
+    public function save(): Closure
+    {
+        return function() {
+            if ($this->pagada) {
+                // Send payment confirmation email
+                $this->sendPaymentNotification();
+            }
+            return null;
+        };
+    }
+}
+```
+
+### Data Validation
+
+```php
+class Producto
+{
+    public function test(): Closure
+    {
+        return function() {
+            // Ensure reference is uppercase
+            $this->referencia = strtoupper($this->referencia);
+            
+            // Validate custom format
+            if (!preg_match('/^[A-Z]{3}[0-9]{4}$/', $this->referencia)) {
+                Tools::log()->error('Invalid reference format');
+                return false;
+            }
+            
+            return null;
+        };
+    }
+}
+```
+
+## Reference
+
+### ExtensionsTrait Methods
+
+| Method | Description |
+|--------|-------------|
+| `addExtension($ext, $priority)` | Register extension with priority |
+| `clearExtensions()` | Remove all extensions |
+| `getExtensions()` | Get list of extension names |
+| `hasExtension($name)` | Check if extension exists |
+| `pipe($name, ...$args)` | Execute all extensions for method |
+| `pipeFalse($name, ...$args)` | Execute until one returns false |
+| `removeExtension($name)` | Remove specific extension |
+
+### Common Hook Methods
+
+| Hook | When Called | Use Case |
+|------|-------------|----------|
+| `clear()` | After clearing model | Initialize fields |
+| `test()` | Before validation | Add validation |
+| `save()` | Before save | Pre-save logic |
+| `saveInsert()` | Before insert | Modify insert data |
+| `saveUpdate()` | Before update | Modify update data |
+| `delete()` | Before delete | Prevent deletion |
+| `loadData()` | When loading view | Add custom data |
+| `execPreviousAction()` | Before action | Log/validate action |

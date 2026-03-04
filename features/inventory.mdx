@@ -1,0 +1,536 @@
+---
+title: Inventory Management
+description: Complete warehouse and stock control system with multi-location support
+icon: boxes-stacked
+---
+
+FacturaScripts provides comprehensive inventory management capabilities including multi-warehouse support, stock tracking, and automatic stock updates from sales and purchase operations.
+
+## Core Components
+
+<CardGroup cols={3}>
+  <Card title="Products" icon="box">
+    Product catalog with variants and attributes
+  </Card>
+  <Card title="Warehouses" icon="warehouse">
+    Multiple warehouse locations
+  </Card>
+  <Card title="Stock Control" icon="chart-line">
+    Real-time stock levels and movements
+  </Card>
+</CardGroup>
+
+## Products (Productos)
+
+Products are the items you sell or purchase.
+
+### Product Structure
+
+Located at `Core/Model/Producto.php`:
+
+```php
+class Producto extends ModelClass
+{
+    use TaxRelationTrait;
+    
+    public $idproducto;        // Primary key
+    public $referencia;        // Product reference/SKU
+    public $descripcion;       // Description
+    public $precio;            // Base price (without tax)
+    public $stockfis;          // Total physical stock
+    public $codfamilia;        // Product family code
+    public $codfabricante;     // Manufacturer code
+    
+    // Stock control flags
+    public $nostock;           // Don't control stock
+    public $ventasinstock;     // Allow sales without stock
+    public $secompra;          // Can be purchased
+    public $sevende;           // Can be sold
+    
+    // Status
+    public $bloqueado;         // Blocked/obsolete
+    public $publico;           // Public (sync to online store)
+    
+    // Accounting
+    public $codsubcuentacom;   // Purchase account
+    public $codsubcuentaven;   // Sales account
+    public $codsubcuentairpfcom; // IRPF purchase account
+    
+    // Dates
+    public $fechaalta;         // Creation date
+    public $actualizado;       // Last update
+    
+    // Tax
+    public $codimpuesto;       // Tax code
+    public $excepcioniva;      // VAT exception
+}
+```
+
+### Key Features
+
+#### Product Variants
+
+Products support multiple variants (sizes, colors, etc.):
+
+```php
+public function getVariants(): array
+{
+    // Returns all variants for this product
+    // Each variant has its own:
+    // - Reference (SKU)
+    // - Price
+    // - Stock level
+    // - Attributes
+}
+```
+
+#### Product Images
+
+```php
+public function getImages(bool $imgVariant = true): array
+{
+    // Returns product images
+    // Can filter to exclude variant-specific images
+}
+```
+
+#### Tax Calculation
+
+```php
+public function priceWithTax(): float
+{
+    return $this->precio * (100 + $this->getTax()->iva) / 100;
+}
+
+public function setPriceWithTax(float $price): bool
+{
+    // Sets base price from tax-inclusive price
+}
+```
+
+### Stock Control Modes
+
+#### No Stock Control
+
+```php
+public $nostock = true;
+```
+
+When enabled:
+- Stock levels are always zero
+- No stock updates from operations
+- Useful for services or non-inventory items
+- Automatically sets `ventasinstock = true`
+
+#### Sales Without Stock
+
+```php
+public $ventasinstock = true;
+```
+
+Allows:
+- Selling products even when stock is zero or negative
+- Useful for made-to-order items
+- Backorder management
+
+### Product Status
+
+#### Blocked Products
+
+```php
+if ($this->bloqueado) {
+    $this->publico = false;
+    $this->sevende = false;
+    $this->secompra = false;
+}
+```
+
+Blocked products:
+- Cannot be purchased
+- Cannot be sold
+- Not synchronized to online stores
+- Useful for discontinued items
+
+## Warehouses (Almacenes)
+
+Warehouses represent physical storage locations.
+
+### Warehouse Model
+
+Located at `Core/Model/Almacen.php`:
+
+```php
+class Almacen extends ModelClass
+{
+    use CompanyRelationTrait;
+    
+    public $codalmacen;        // Warehouse code (1-4 chars)
+    public $nombre;            // Name
+    public $idempresa;         // Company ID
+    
+    // Address
+    public $direccion;         // Address
+    public $ciudad;            // City
+    public $provincia;         // Province/state
+    public $codpostal;         // Postal code
+    public $apartado;          // P.O. Box
+    public $codpais;           // Country code
+    
+    // Contact
+    public $telefono;          // Phone
+    
+    // Status
+    public $activo;            // Active/inactive
+}
+```
+
+### Default Warehouse
+
+```php
+public function isDefault(): bool
+{
+    return $this->codalmacen === Tools::settings('default', 'codalmacen');
+}
+```
+
+The default warehouse:
+- Used when no warehouse is specified
+- Cannot be deleted
+- Set in system settings
+
+### Multi-Company Support
+
+Each warehouse belongs to a company:
+- Separate stock per company
+- Independent warehouse management
+- Cross-company transfers possible
+
+## Stock (Stock)
+
+Stock records track product quantities in each warehouse.
+
+### Stock Model
+
+Located at `Core/Model/Stock.php`:
+
+```php
+class Stock extends ModelClass
+{
+    use ProductRelationTrait;
+    
+    public $idstock;           // Primary key
+    public $idproducto;        // Product ID
+    public $referencia;        // Product reference
+    public $codalmacen;        // Warehouse code
+    
+    // Quantities
+    public $cantidad;          // Physical quantity
+    public $reservada;         // Reserved quantity
+    public $disponible;        // Available (cantidad - reservada)
+    public $pterecibir;        // Pending receipt from suppliers
+    
+    // Stock levels
+    public $stockmin;          // Minimum stock level
+    public $stockmax;          // Maximum stock level
+    
+    // Location
+    public $ubicacion;         // Bin/location code
+}
+```
+
+### Stock Availability
+
+```php
+public function test(): bool
+{
+    // Automatically calculates available stock
+    $this->disponible = max([0, $this->cantidad - $this->reservada]);
+}
+```
+
+**Stock States:**
+
+- `cantidad`: Physical stock in warehouse
+- `reservada`: Reserved for confirmed orders
+- `disponible`: Available for new orders (cantidad - reservada)
+- `pterecibir`: Expected from suppliers
+
+### Stock Transfers
+
+```php
+public function transferTo(string $toWarehouse, float $qty): bool
+{
+    // Transfers stock between warehouses
+    // Updates both source and destination
+    $destination = new Stock();
+    if ($destination->loadWhere(['codalmacen' => $toWarehouse, 
+                                  'referencia' => $this->referencia])) {
+        $destination->cantidad += $qty;
+    } else {
+        // Create new stock record in destination
+    }
+    
+    $this->cantidad -= $qty;
+    return $destination->save() && $this->save();
+}
+```
+
+### Total Stock Calculation
+
+```php
+public function totalFromProduct(int $idproducto, string $referencia = ''): float
+{
+    // Sums stock across all warehouses for a product
+    // Optional: Filter by specific reference (variant)
+}
+```
+
+### Product Stock Updates
+
+When stock changes, product totals are updated:
+
+```php
+protected function updateProductStock(): bool
+{
+    // Updates producto.stockfis with total from all warehouses
+    // Updates variante.stockfis for specific reference
+}
+```
+
+## Stock Movements
+
+Stock is automatically updated by:
+
+### Sales Documents
+
+- **Delivery Notes**: Reduce stock when delivered
+- **Invoices**: Can reduce stock depending on configuration
+- **Orders**: Can reserve stock
+
+### Purchase Documents
+
+- **Supplier Delivery Notes**: Increase stock on receipt
+- **Purchase Invoices**: Can increase stock
+
+### Document Line Control
+
+```php
+// In document lines (e.g., LineaAlbaranCliente)
+$newLine->actualizastock = $this->getStatus()->actualizastock;
+```
+
+Each document status defines whether it affects stock.
+
+## Stock Tracking
+
+### Stock Levels
+
+**Minimum Stock (`stockmin`):**
+- Alert threshold for reordering
+- Used in stock reports
+- Per warehouse
+
+**Maximum Stock (`stockmax`):**
+- Target stock level
+- Helps prevent overstocking
+- Per warehouse
+
+### Warehouse Locations
+
+```php
+public $ubicacion;  // Bin/location within warehouse
+```
+
+Track exact locations:
+- Aisle, rack, shelf codes
+- Bin numbers
+- Custom location identifiers
+
+## Product Families and Manufacturers
+
+Organize products hierarchically:
+
+### Families
+
+```php
+public $codfamilia;  // Product family code
+
+public function getFamilia(): ?Familia
+{
+    return $this->belongsTo(Familia::class, 'codfamilia');
+}
+```
+
+Families allow:
+- Categorization
+- Group reporting
+- Filtering and search
+- Shared attributes
+
+### Manufacturers
+
+```php
+public $codfabricante;  // Manufacturer code
+
+public function getFabricante(): ?Fabricante
+{
+    return $this->belongsTo(Fabricante::class, 'codfabricante');
+}
+```
+
+## Inventory Validation
+
+### Product Validation
+
+```php
+public function test(): bool
+{
+    // Reference validation (max 30 chars)
+    // Description cannot be null
+    // Stock cleared if nostock enabled
+    // Blocked products cannot be public/sold/purchased
+    // Tax validation with exceptions
+    
+    if ($this->nostock && $this->stockfis != 0) {
+        // Clear all stock records
+        DELETE FROM stocks WHERE idproducto = ...
+    }
+}
+```
+
+### Deletion Protection
+
+```php
+public function delete(): bool
+{
+    // Check if variants used in documents
+    foreach ($this->getVariants() as $variant) {
+        if ($variant->isInDocuments()) {
+            Tools::log()->warning('cant-delete-variant-with-documents');
+            return false;
+        }
+    }
+    
+    // Delete images first
+    // Then delete product
+}
+```
+
+## Reference Management
+
+### Unique References
+
+Product references must be unique across the system:
+
+```php
+protected function saveInsert(): bool
+{
+    // Check for duplicate reference
+    $where = [new DataBaseWhere('referencia', $this->referencia)];
+    if ($this->count($where) > 0) {
+        Tools::log()->warning('duplicated-reference');
+        return false;
+    }
+}
+```
+
+### Auto-Generation
+
+```php
+if (empty($this->referencia)) {
+    // Auto-generate from Variante model
+    $variant = new Variante();
+    $this->referencia = (string)$variant->newCode('referencia');
+}
+```
+
+## Product Updates
+
+### Automatic Timestamp
+
+```php
+public function test(): bool
+{
+    $this->actualizado = Tools::dateTime();
+    // ...
+}
+```
+
+Every product save updates `actualizado` for sync tracking.
+
+### Variant Synchronization
+
+```php
+public function updateInfo(): void
+{
+    // Updates product price and reference from variants
+    // Uses main variant or first variant
+}
+```
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Stock Control Strategy">
+    Decide whether to control stock at delivery note or invoice level. Most businesses use delivery notes to match physical movements.
+  </Accordion>
+  
+  <Accordion title="Multiple Warehouses">
+    Use separate warehouses for different locations, even if small. This provides better tracking and reporting.
+  </Accordion>
+  
+  <Accordion title="Stock Levels">
+    Set minimum and maximum stock levels for automatic reorder reports. Review and adjust regularly based on sales velocity.
+  </Accordion>
+  
+  <Accordion title="Product References">
+    Use consistent, meaningful reference codes. Consider including category or manufacturer codes in the reference.
+  </Accordion>
+  
+  <Accordion title="Regular Counts">
+    Perform regular physical inventory counts and reconcile with system stock. Use stock adjustment documents.
+  </Accordion>
+</AccordionGroup>
+
+## Integration Points
+
+### With Invoicing
+
+- Sales documents can update stock
+- Purchase documents can increase stock
+- Stock validation on document save
+
+### With Accounting
+
+- Products link to purchase/sales accounts
+- Stock movements can generate accounting entries
+- Inventory valuation reports
+
+### With Pricing
+
+- Base price without tax
+- Tax-inclusive price calculation
+- Variant-specific pricing
+- Customer-specific prices via tariffs
+
+## Related Models
+
+- `Core/Model/Producto.php` - Products
+- `Core/Model/Variante.php` - Product variants
+- `Core/Model/Stock.php` - Stock records
+- `Core/Model/Almacen.php` - Warehouses
+- `Core/Model/Familia.php` - Product families
+- `Core/Model/Fabricante.php` - Manufacturers
+- `Core/Model/ProductoImagen.php` - Product images
+- `Core/Model/Atributo.php` - Product attributes
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Learn how documents update inventory
+  </Card>
+  <Card title="Reports" icon="chart-line" href="/features/reports">
+    Generate inventory reports and analytics
+  </Card>
+</CardGroup>

@@ -1,0 +1,374 @@
+---
+title: System Configuration
+description: Configure FacturaScripts system settings and preferences
+icon: settings
+---
+
+## Overview
+
+FacturaScripts uses a flexible settings system that allows you to configure various aspects of the application. Settings are stored in the database and accessed through the `Settings` model and `Tools` helper class.
+
+## Settings Model
+
+The Settings model is located at `Core/Model/Settings.php` and provides a key-value storage system grouped by setting names.
+
+### Settings Structure
+
+- **name**: Identifier of the settings group (primary key)
+- **properties**: JSON-encoded set of configuration values
+
+### Settings Properties
+
+Settings are stored as JSON and accessed as object properties:
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$warehouse = $settings->codalmacen; // Access property
+$settings->codalmacen = 'ALG-001';  // Set property
+$settings->save();
+```
+
+## Accessing Settings
+
+### Using Tools::settings()
+
+The recommended way to access settings is through the `Tools` helper:
+
+```php
+// Get a setting with optional default value
+$warehouse = Tools::settings('default', 'codalmacen');
+$companyId = Tools::settings('default', 'idempresa', 1);
+
+// Check if setting exists
+if (Tools::settings('default', 'enableupdatesbeta', false)) {
+    // Beta updates are enabled
+}
+```
+
+Parameters:
+1. **group**: Settings group name (e.g., 'default')
+2. **key**: Property name within the group
+3. **default**: Optional default value if setting doesn't exist
+
+### Direct Model Access
+
+You can also work directly with the Settings model:
+
+```php
+$settings = new Settings();
+$settings->load('default');
+
+// Get property
+$value = $settings->getProperty('codalmacen');
+
+// Set property
+$settings->setProperty('codalmacen', 'ALG-001');
+
+// Remove property
+$settings->removeProperty('old_setting');
+
+// Get all properties
+$allProps = $settings->getProperties();
+
+// Set multiple properties
+$settings->setProperties([
+    'codalmacen' => 'ALG-001',
+    'idempresa' => 1,
+    'codrole' => 'EMPLOYEE'
+]);
+
+$settings->save();
+```
+
+## Default Settings Group
+
+The 'default' settings group contains system-wide configuration. Here are common settings found in the source code:
+
+### Company Settings
+
+- **idempresa**: Default company ID (used in `User.php:192`, `Empresa.php:190`)
+- **codpais**: Default country code (used in `Empresa.php:113`)
+- **tipoidfiscal**: Default fiscal ID type (used in `Empresa.php:116`)
+
+### Warehouse Settings
+
+- **codalmacen**: Default warehouse code (used in `User.php:189`, `User.php:476`)
+
+### User Settings
+
+- **codrole**: Default role assigned to new users (used in `User.php:451`)
+
+### Plugin Settings
+
+- **enableupdatesbeta**: Enable beta plugin updates (used in `Plugin.php:214`)
+
+## Configuration via config.php
+
+Some settings are configured in the `config.php` file located in the root directory:
+
+### Initial Setup Settings
+
+These are used during installation:
+
+- **initial_user**: Default admin username (default: 'admin')
+- **initial_pass**: Default admin password (default: 'admin')
+- **initial_email**: Default admin email
+- **initial_empresa**: Default company name (default: 'E-' + random number)
+- **initial_codpais**: Default country code (default: 'ESP')
+- **lang**: Default language code
+
+Example from `User.php:284`:
+```php
+$nick = Tools::config('initial_user', 'admin');
+$pass = Tools::config('initial_pass', 'admin');
+$email = Tools::config('initial_email', '');
+$lang = Tools::config('lang');
+```
+
+### Plugin Control Settings
+
+- **disable_add_plugins**: Disable plugin installation (checked in `Plugins.php:39`)
+- **disable_rm_plugins**: Disable plugin removal (checked in `Plugins.php:312`)
+- **hidden_plugins**: Comma-separated list of plugins to hide (checked in `Plugin.php:305`)
+
+### Database Settings
+
+- **db_host**: Database server hostname
+- **db_port**: Database server port
+- **db_name**: Database name
+- **db_user**: Database username
+- **db_pass**: Database password
+- **db_type**: Database type (mysql, postgresql)
+
+## Settings Validation
+
+The Settings model includes automatic HTML sanitization (`Settings.php:99`):
+
+```php
+public function getProperties(): array
+{
+    $data = json_decode($this->properties ?? '', true);
+    if (!is_array($data)) {
+        return [];
+    }
+
+    foreach ($data as $property => $value) {
+        // If contains HTML, clean it
+        if (is_string($value) && strpos($value, '<') !== false) {
+            $data[$property] = Tools::noHtml($value);
+        }
+    }
+
+    return $data;
+}
+```
+
+The `test()` method also sanitizes the name:
+
+```php
+public function test(): bool
+{
+    // Escape HTML
+    $this->name = Tools::noHtml($this->name);
+
+    return parent::test();
+}
+```
+
+## Cache Management
+
+Settings are cached for performance. Clear the cache when updating settings:
+
+```php
+public function clearCache(): void
+{
+    parent::clearCache();
+    Tools::settingsClear(); // Clears the settings cache
+}
+```
+
+This ensures all parts of the application receive updated settings immediately.
+
+## Magic Methods
+
+The Settings model implements magic methods for convenient property access:
+
+### __get()
+
+Access properties directly:
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$warehouse = $settings->codalmacen; // Calls __get('codalmacen')
+```
+
+Implementation (`Settings.php:50`):
+```php
+public function __get(string $key)
+{
+    $properties = $this->getProperties();
+    if (array_key_exists($key, $properties)) {
+        return $properties[$key];
+    }
+
+    return parent::__get($key);
+}
+```
+
+### __set()
+
+Set properties directly:
+
+```php
+$settings->codalmacen = 'ALG-001'; // Calls __set('codalmacen', 'ALG-001')
+```
+
+Implementation (`Settings.php:81`):
+```php
+public function __set(string $key, $value): void
+{
+    $this->setProperty($key, $value);
+}
+```
+
+### __isset()
+
+Check if property exists:
+
+```php
+if (isset($settings->codalmacen)) {
+    // Property exists
+}
+```
+
+### __unset()
+
+Remove a property:
+
+```php
+unset($settings->old_setting); // Calls __unset('old_setting')
+```
+
+## JSON Storage Format
+
+Settings properties are stored as JSON with flags (`Settings.php:132`):
+
+```php
+public function setProperties(array $properties): void
+{
+    $this->properties = json_encode($properties, 
+        JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+}
+```
+
+This ensures:
+- Unicode characters are stored properly
+- Slashes are not escaped
+- Human-readable format in database
+
+## Creating Custom Settings Groups
+
+You can create your own settings groups for plugin or module configuration:
+
+```php
+// Create a new settings group
+$mySettings = new Settings();
+$mySettings->name = 'myplugin';
+$mySettings->api_key = 'abc123';
+$mySettings->api_endpoint = 'https://api.example.com';
+$mySettings->enabled = true;
+$mySettings->save();
+
+// Later, retrieve the settings
+$apiKey = Tools::settings('myplugin', 'api_key');
+$endpoint = Tools::settings('myplugin', 'api_endpoint');
+```
+
+## Common Configuration Tasks
+
+### Change Default Warehouse
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$settings->codalmacen = 'MAD-001';
+$settings->save();
+```
+
+### Change Default Company
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$settings->idempresa = 2;
+$settings->save();
+```
+
+### Enable Beta Updates
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$settings->enableupdatesbeta = true;
+$settings->save();
+```
+
+### Set Default Role for New Users
+
+```php
+$settings = new Settings();
+$settings->load('default');
+$settings->codrole = 'EMPLOYEE';
+$settings->save();
+```
+
+## Settings vs Config
+
+### When to Use Settings (Database)
+
+- User-configurable options
+- Options that change during runtime
+- Multi-company or multi-environment values
+- Options that need UI for modification
+
+### When to Use Config (config.php)
+
+- Installation/deployment settings
+- Database connection details
+- Security tokens and keys
+- Environment-specific values
+- Settings that shouldn't change after deployment
+
+## Best Practices
+
+1. **Group Related Settings**: Use descriptive group names for organization
+2. **Provide Defaults**: Always provide sensible default values when accessing settings
+3. **Clear Cache**: Always clear cache after updating settings
+4. **Validate Input**: Validate and sanitize all setting values before saving
+5. **Document Custom Settings**: Document any custom settings groups you create
+6. **Use Consistent Types**: Keep property types consistent (don't mix string/int/bool)
+7. **Don't Store Secrets**: Avoid storing sensitive data in settings (use secure vaults)
+
+## Settings URL
+
+The Settings model includes a custom URL method (`Settings.php:159`):
+
+```php
+public function url(string $type = 'auto', string $list = 'Edit'): string
+{
+    return parent::url($type, $list);
+}
+```
+
+This allows generating URLs to edit settings, typically linking to the Edit controller.
+
+## Related Files
+
+- Settings Model: `/Core/Model/Settings.php`
+- Tools Helper: `/Core/Tools.php`
+- Configuration File: `/config.php` (root directory)
+- User Model: `/Core/Model/User.php` (uses settings)
+- Company Model: `/Core/Model/Empresa.php` (uses settings)
+- Plugin Class: `/Core/Internal/Plugin.php` (uses settings)

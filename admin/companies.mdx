@@ -1,0 +1,355 @@
+---
+title: Company Management
+description: Configure and manage multiple companies in FacturaScripts
+icon: building
+---
+
+## Overview
+
+FacturaScripts supports multi-company operations, allowing you to manage multiple legal entities within a single installation. Each company can have its own configuration, warehouses, bank accounts, and fiscal exercises.
+
+## Company Model
+
+The Empresa (Company) model is located at `Core/Model/Empresa.php` and stores the main company data.
+
+### Company Properties
+
+#### Basic Information
+
+- **idempresa**: Primary key (integer, auto-generated)
+- **nombre**: Full company name (max 100 characters)
+- **nombrecorto**: Short company name (max 32 characters)
+- **administrador**: Administrator name
+- **fechaalta**: Registration date (auto-set on creation)
+
+#### Tax Information
+
+- **cifnif**: Tax identification number (fiscal number)
+- **tipoidfiscal**: Type of fiscal ID (default from settings)
+- **regimeniva**: VAT regime (default from `RegimenIVA::defaultValue()`)
+- **excepcioniva**: VAT exemption code
+- **personafisica**: Boolean - Is physical person (vs. company)
+
+#### Contact Information
+
+- **email**: Email address
+- **telefono1**: Primary phone
+- **telefono2**: Secondary phone
+- **fax**: Fax number
+- **web**: Website URL (validated)
+
+#### Address Information
+
+- **direccion**: Street address
+- **apartado**: P.O. Box
+- **codpostal**: Postal/ZIP code
+- **ciudad**: City
+- **provincia**: Province/State
+- **codpais**: Country code
+
+#### Other Properties
+
+- **idlogo**: Associated logo file ID
+- **observaciones**: Notes/observations
+
+## Company Creation
+
+### Default Company Installation
+
+During installation (`Empresa.php:169`), a default company is created:
+
+```php
+INSERT INTO empresas (idempresa,web,codpais,direccion,administrador,cifnif,nombre,
+nombrecorto,personafisica,regimeniva) 
+VALUES (1,'','ESP','','','00000014Z','E-1234','E-1234','0','General');
+```
+
+Configuration values:
+- **idempresa**: 1 (first company)
+- **nombre**: From `initial_empresa` config (default: 'E-' + random number)
+- **codpais**: From `initial_codpais` config (default: 'ESP')
+- **regimeniva**: Default VAT regime
+- **cifnif**: Placeholder '00000014Z'
+
+### Creating Additional Companies
+
+When creating a new company (`Empresa.php:258`):
+
+1. Set company properties
+2. Call `save()`
+3. System automatically:
+   - Generates `idempresa` if not provided
+   - Creates a default payment method
+   - Creates a default warehouse
+
+```php
+protected function saveInsert(): bool
+{
+    if (empty($this->idempresa)) {
+        $this->idempresa = $this->newCode();
+    }
+
+    return parent::saveInsert() && 
+           $this->createPaymentMethods() && 
+           $this->createWarehouse();
+}
+```
+
+## Default Company
+
+### Checking Default Company
+
+Use `isDefault()` method to check if a company is the default:
+
+```php
+public function isDefault(): bool
+{
+    return $this->idempresa === (int)Tools::settings('default', 'idempresa');
+}
+```
+
+### Default Company Protection
+
+The default company cannot be deleted (`Empresa.php:126`):
+
+```php
+public function delete(): bool
+{
+    if ($this->isDefault()) {
+        Tools::log()->warning('cant-delete-default-company');
+        return false;
+    }
+
+    return parent::delete();
+}
+```
+
+## Company Associations
+
+### Bank Accounts
+
+Get all bank accounts associated with a company:
+
+```php
+$bankAccounts = $company->getBankAccounts(); // Returns CuentaBanco[]
+```
+
+Implementation (`Empresa.php:141`):
+```php
+public function getBankAccounts(): array
+{
+    $where = [new DataBaseWhere($this->primaryColumn(), $this->id())];
+    return DinCuentaBanco::all($where, [], 0, 0);
+}
+```
+
+### Fiscal Exercises
+
+Get all fiscal exercises (accounting periods) for a company:
+
+```php
+$exercises = $company->getExercises(); // Returns Ejercicio[]
+```
+
+Implementation (`Empresa.php:152`):
+```php
+public function getExercises(): array
+{
+    $where = [new DataBaseWhere($this->primaryColumn(), $this->id())];
+    return DinEjercicio::all($where, [], 0, 0);
+}
+```
+
+### Warehouses
+
+Get all warehouses belonging to a company:
+
+```php
+$warehouses = $company->getWarehouses(); // Returns Almacen[]
+```
+
+Implementation (`Empresa.php:163`):
+```php
+public function getWarehouses(): array
+{
+    $where = [new DataBaseWhere($this->primaryColumn(), $this->id())];
+    return DinAlmacen::all($where, [], 0, 0);
+}
+```
+
+## Data Validation
+
+### Company Test Method
+
+The `test()` method (`Empresa.php:208`) validates and sanitizes all company data:
+
+1. **HTML Sanitization**: All text fields are cleaned with `Tools::noHtml()`
+2. **URL Validation**: Website URLs are validated
+3. **Email Validation**: Email addresses are validated
+4. **Phone Validation**: Phone numbers are validated
+5. **Fiscal Number Validation**: Tax IDs are validated
+
+```php
+public function test(): bool
+{
+    $this->administrador = Tools::noHtml($this->administrador);
+    $this->apartado = Tools::noHtml($this->apartado);
+    $this->ciudad = Tools::noHtml($this->ciudad);
+    $this->codpostal = Tools::noHtml($this->codpostal);
+    // ... more sanitization
+
+    // Website validation
+    if (!empty($this->web) && false === Validator::url($this->web)) {
+        Tools::log()->warning('invalid-web', ['%web%' => $this->web]);
+        return false;
+    }
+
+    return parent::test() && 
+           $this->testEmailAndPhones() && 
+           $this->testFiscalNumber();
+}
+```
+
+## VAT/VIES Validation
+
+### Check VIES Database
+
+Validate a company's VAT number against the EU VIES database:
+
+```php
+$isValid = $company->checkVies(); // Returns bool
+```
+
+Implementation (`Empresa.php:104`):
+```php
+public function checkVies(bool $msg = true): bool
+{
+    $codiso = Paises::get($this->codpais)->codiso ?? '';
+    return Vies::check($this->cifnif ?? '', $codiso, $msg) === 1;
+}
+```
+
+This method:
+- Retrieves the ISO country code from the company's country
+- Validates the fiscal number against VIES
+- Optionally displays validation messages
+
+## Automatic Setup
+
+### Default Payment Method
+
+When a company is created, a default payment method is automatically generated (`Empresa.php:231`):
+
+```php
+protected function createPaymentMethods(): bool
+{
+    $formaPago = new FormaPago();
+    $formaPago->codpago = $formaPago->newCode();
+    $formaPago->descripcion = Tools::lang()->trans('default');
+    $formaPago->idempresa = $this->idempresa;
+
+    return $formaPago->save();
+}
+```
+
+### Default Warehouse
+
+A default warehouse is created with the company's address details (`Empresa.php:241`):
+
+```php
+protected function createWarehouse(): bool
+{
+    $almacen = new Almacen();
+    $almacen->apartado = $this->apartado;
+    $almacen->codalmacen = $almacen->newCode();
+    $almacen->ciudad = $this->ciudad;
+    $almacen->codpais = $this->codpais;
+    $almacen->codpostal = $this->codpostal;
+    $almacen->direccion = $this->direccion;
+    $almacen->idempresa = $this->idempresa;
+    $almacen->nombre = $this->nombrecorto ?? $this->nombre;
+    $almacen->provincia = $this->provincia;
+    $almacen->telefono = $this->telefono1;
+
+    return $almacen->save();
+}
+```
+
+## Company Clear/Reset
+
+When clearing a company object (`Empresa.php:110`), defaults are set:
+
+```php
+public function clear(): void
+{
+    parent::clear();
+    $this->codpais = Tools::settings('default', 'codpais');
+    $this->fechaalta = Tools::date();
+    $this->regimeniva = RegimenIVA::defaultValue();
+    $this->tipoidfiscal = Tools::settings('default', 'tipoidfiscal');
+}
+```
+
+## Cache Management
+
+Company data is cached for performance. Clear the cache after updates:
+
+```php
+public function clearCache(): void
+{
+    parent::clearCache();
+    Empresas::clear(); // Clears the Empresas data source cache
+}
+```
+
+## Multi-Company Usage
+
+### User-Company Association
+
+Users are associated with companies via:
+- **idempresa**: User's default company ID
+- **codalmacen**: User's default warehouse (must belong to their company)
+
+The User model validates warehouse-company consistency (`User.php:473`):
+
+```php
+if ($warehouse->idempresa != $this->idempresa) {
+    $this->codalmacen = Tools::settings('default', 'codalmacen');
+    $this->idempresa = Tools::settings('default', 'idempresa');
+}
+```
+
+### Setting Default Company
+
+Configure the default company in system settings:
+
+```php
+Tools::settings('default', 'idempresa', 1);
+```
+
+## Traits Used
+
+The Empresa model uses several traits for extended functionality:
+
+- **EmailAndPhonesTrait**: Adds email and phone validation
+- **FiscalNumberTrait**: Adds fiscal number validation
+- **GravatarTrait**: Adds Gravatar image support based on email
+
+## Best Practices
+
+1. **Complete Tax Information**: Always fill in VAT number and tax regime correctly
+2. **Validate VIES**: For EU companies, validate VAT numbers using `checkVies()`
+3. **Unique Short Names**: Use distinct `nombrecorto` values for easy identification
+4. **Proper Address Data**: Complete address information for accurate warehouse creation
+5. **Don't Delete**: Disable rather than delete companies to preserve historical data
+6. **Backup Before Changes**: Multi-company setups affect many related records
+
+## Related Files
+
+- Company Model: `/Core/Model/Empresa.php`
+- Warehouse Model: `/Core/Model/Almacen.php`
+- Payment Method Model: `/Core/Model/FormaPago.php`
+- Fiscal Exercise Model: `/Core/Model/Ejercicio.php`
+- Bank Account Model: `/Core/Model/CuentaBanco.php`
+- VAT Regime Library: `/Dinamic/Lib/RegimenIVA.php`
+- VIES Library: `/Core/Lib/Vies.php`

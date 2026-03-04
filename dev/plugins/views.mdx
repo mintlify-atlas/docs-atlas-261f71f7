@@ -1,0 +1,612 @@
+---
+title: Creating Views
+description: Design user interfaces using XMLViews in FacturaScripts
+---
+
+FacturaScripts uses XML-based view definitions (XMLViews) to automatically generate list and edit interfaces for your models. This system provides a consistent, powerful UI without writing HTML or JavaScript.
+
+## XMLView Overview
+
+XMLViews are XML files that define how data is displayed and edited. They support:
+
+- Automatic form generation from model properties
+- Data validation and input widgets
+- Responsive grid layouts
+- List views with sorting and filtering
+- Edit views with tabs and groups
+- Custom business logic integration
+
+**Location:** `Plugins/YourPlugin/XMLView/`
+
+## View Types
+
+### List Views
+
+Display multiple records in a table with search and filters.
+
+**Naming:** `ListModelName.xml`
+
+**Example:** `ListProduct.xml`
+
+### Edit Views
+
+Display and edit a single record.
+
+**Naming:** `EditModelName.xml`
+
+**Example:** `EditProduct.xml`
+
+## Creating a List View
+
+Create `XMLView/ListMyModel.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<view>
+    <columns>
+        <column name="id" display="left" order="100">
+            <widget type="number" fieldname="id" readonly="true"/>
+        </column>
+        <column name="name" display="left" order="110">
+            <widget type="text" fieldname="name"/>
+        </column>
+        <column name="description" display="none" order="120">
+            <widget type="text" fieldname="description"/>
+        </column>
+        <column name="active" display="center" order="130">
+            <widget type="checkbox" fieldname="active"/>
+        </column>
+        <column name="created-at" display="right" order="140">
+            <widget type="datetime" fieldname="created_at"/>
+        </column>
+    </columns>
+</view>
+```
+
+### Column Attributes
+
+| Attribute | Values | Description |
+|-----------|--------|-------------|
+| `name` | string | Translation key for column header |
+| `display` | `left`, `center`, `right`, `none` | Column visibility and alignment |
+| `order` | integer | Display order (lower = left) |
+| `numcolumns` | 1-12 | Width in grid (default: auto) |
+| `description` | string | Additional translation key for tooltip |
+
+## Creating an Edit View
+
+Create `XMLView/EditMyModel.xml`:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<view>
+    <columns>
+        <group name="data" numcolumns="12">
+            <column name="id" numcolumns="2" order="100">
+                <widget type="number" fieldname="id" readonly="dinamic" icon="fa-solid fa-hashtag"/>
+            </column>
+            <column name="name" numcolumns="6" order="110">
+                <widget type="text" fieldname="name" required="true" maxlength="100"/>
+            </column>
+            <column name="active" numcolumns="2" order="120">
+                <widget type="checkbox" fieldname="active"/>
+            </column>
+        </group>
+        
+        <group name="details" numcolumns="12">
+            <column name="description" numcolumns="12" order="100">
+                <widget type="textarea" fieldname="description" rows="5"/>
+            </column>
+            <column name="price" numcolumns="3" order="110">
+                <widget type="number" fieldname="price" decimal="2"/>
+            </column>
+            <column name="created-at" numcolumns="4" order="120">
+                <widget type="datetime" fieldname="created_at" readonly="true"/>
+            </column>
+        </group>
+    </columns>
+</view>
+```
+
+### Group Element
+
+Groups organize fields into sections:
+
+```xml
+<group name="section-name" numcolumns="12" title="Section Title">
+    <!-- columns here -->
+</group>
+```
+
+**Attributes:**
+- `name` - Translation key for group header
+- `numcolumns` - Total columns in grid (typically 12)
+- `title` - Optional override for group header
+- `icon` - FontAwesome icon class
+
+## Widget Types
+
+FacturaScripts provides many widget types for different data:
+
+### Text Input
+
+```xml
+<widget type="text" fieldname="name" required="true" maxlength="100" icon="fa-solid fa-tag"/>
+```
+
+**Attributes:**
+- `maxlength` - Maximum characters
+- `required` - Mark as required
+- `readonly` - Make read-only
+- `icon` - FontAwesome icon
+- `hint` - Placeholder text
+
+### Number Input
+
+```xml
+<widget type="number" fieldname="quantity" decimal="2" min="0" max="9999"/>
+```
+
+**Attributes:**
+- `decimal` - Number of decimal places
+- `min` - Minimum value
+- `max` - Maximum value
+- `step` - Increment step
+
+### Textarea
+
+```xml
+<widget type="textarea" fieldname="description" rows="5"/>
+```
+
+**Attributes:**
+- `rows` - Number of visible rows
+
+### Checkbox
+
+```xml
+<widget type="checkbox" fieldname="active"/>
+```
+
+### Date and Time
+
+```xml
+<!-- Date only -->
+<widget type="date" fieldname="birth_date"/>
+
+<!-- Date and time -->
+<widget type="datetime" fieldname="created_at"/>
+
+<!-- Time only -->
+<widget type="time" fieldname="start_time"/>
+```
+
+### Select Dropdown
+
+```xml
+<widget type="select" fieldname="status" required="true">
+    <values title="Status">
+        <value title="Pending" value="pending">pending</value>
+        <value title="Approved" value="approved">approved</value>
+        <value title="Rejected" value="rejected">rejected</value>
+    </values>
+</widget>
+```
+
+**Dynamic values from model:**
+
+```xml
+<widget type="select" fieldname="customer_id">
+    <values source="customers" fieldcode="id" fieldtitle="name"/>
+</widget>
+```
+
+**Attributes:**
+- `source` - Model to load data from
+- `fieldcode` - Field to use as option value
+- `fieldtitle` - Field to use as option label
+
+### Autocomplete
+
+```xml
+<widget type="autocomplete" fieldname="customer_id" onclick="EditCustomer">
+    <values source="customers" fieldcode="id" fieldtitle="name"/>
+</widget>
+```
+
+Allows searching and selecting from large datasets. The `onclick` attribute enables editing the selected record.
+
+### Color Picker
+
+```xml
+<widget type="color" fieldname="color"/>
+```
+
+### File Upload
+
+```xml
+<widget type="file" fieldname="document" maxsize="10"/>
+```
+
+**Attributes:**
+- `maxsize` - Maximum file size in MB
+- `accept` - Accepted file types (e.g., "image/*", ".pdf")
+
+### Radio Buttons
+
+```xml
+<widget type="radio" fieldname="type">
+    <values>
+        <value title="Type A" value="a">a</value>
+        <value title="Type B" value="b">b</value>
+    </values>
+</widget>
+```
+
+### HTML Editor
+
+```xml
+<widget type="html" fieldname="content"/>
+```
+
+Provides a rich text editor for HTML content.
+
+## Advanced Features
+
+### Readonly Behavior
+
+The `readonly` attribute supports:
+
+```xml
+<!-- Always readonly -->
+<widget type="text" fieldname="id" readonly="true"/>
+
+<!-- Readonly for existing records (dinamic) -->
+<widget type="text" fieldname="code" readonly="dinamic"/>
+
+<!-- Never readonly -->
+<widget type="text" fieldname="name" readonly="false"/>
+```
+
+### Required Fields
+
+```xml
+<widget type="text" fieldname="name" required="true"/>
+```
+
+Marks field as required. Validation is enforced client-side and server-side.
+
+### Field Dependencies
+
+```xml
+<widget type="select" fieldname="country_id">
+    <values source="countries" fieldcode="id" fieldtitle="name"/>
+</widget>
+
+<widget type="select" fieldname="province_id">
+    <values source="provinces" fieldcode="id" fieldtitle="name" parent="country_id"/>
+</widget>
+```
+
+The `parent` attribute filters values based on another field's value.
+
+### Click Actions
+
+```xml
+<widget type="autocomplete" fieldname="customer_id" onclick="EditCustomer">
+    <values source="customers" fieldcode="id" fieldtitle="name"/>
+</widget>
+```
+
+Opens the specified controller when clicking the field value.
+
+### Title URLs
+
+```xml
+<column name="customer" titleurl="EditCustomer" order="100">
+    <widget type="text" fieldname="customer_name"/>
+</column>
+```
+
+Makes the column header a link to the specified controller.
+
+## Rows Section
+
+Define custom rows with statistics, actions, or custom content:
+
+```xml
+<view>
+    <columns>
+        <!-- column definitions -->
+    </columns>
+    
+    <rows>
+        <row type="statistics">
+            <datalabel icon="fa-solid fa-users" label="total-customers" function="countCustomers"/>
+            <datalabel icon="fa-solid fa-euro-sign" label="total-sales" function="sumSales"/>
+        </row>
+        
+        <row type="actions">
+            <button label="Export" icon="fa-solid fa-download" action="export" color="info"/>
+            <button label="Import" icon="fa-solid fa-upload" action="import" color="warning"/>
+        </row>
+    </rows>
+</view>
+```
+
+### Statistics Row
+
+Displays calculated data:
+
+```xml
+<row type="statistics">
+    <datalabel icon="fa-solid fa-box" label="total-items" function="getTotalItems"/>
+</row>
+```
+
+The `function` attribute calls a method on your model:
+
+```php
+class MyModel extends ModelClass
+{
+    public static function getTotalItems(): int
+    {
+        return static::count(['active' => true]);
+    }
+}
+```
+
+### Actions Row
+
+Custom action buttons:
+
+```xml
+<row type="actions">
+    <button label="Custom Action" icon="fa-solid fa-cog" action="custom" color="primary"/>
+</row>
+```
+
+**Button colors:**
+- `primary` - Blue
+- `secondary` - Gray
+- `success` - Green
+- `danger` - Red
+- `warning` - Orange
+- `info` - Light blue
+
+## Complete Example
+
+Here's a complete edit view with multiple groups and widget types:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<view>
+    <columns>
+        <!-- Basic Information -->
+        <group name="basic-info" numcolumns="12" icon="fa-solid fa-info-circle">
+            <column name="id" numcolumns="2" order="100">
+                <widget type="number" fieldname="id" readonly="dinamic" icon="fa-solid fa-hashtag"/>
+            </column>
+            <column name="reference" numcolumns="3" order="110">
+                <widget type="text" fieldname="reference" required="true" maxlength="20" icon="fa-solid fa-barcode"/>
+            </column>
+            <column name="name" numcolumns="5" order="120">
+                <widget type="text" fieldname="name" required="true" maxlength="100"/>
+            </column>
+            <column name="active" numcolumns="2" order="130">
+                <widget type="checkbox" fieldname="active"/>
+            </column>
+        </group>
+        
+        <!-- Details -->
+        <group name="details" numcolumns="12" icon="fa-solid fa-align-left">
+            <column name="description" numcolumns="12" order="100">
+                <widget type="textarea" fieldname="description" rows="4"/>
+            </column>
+            <column name="category" numcolumns="4" order="110">
+                <widget type="select" fieldname="category_id">
+                    <values source="categories" fieldcode="id" fieldtitle="name"/>
+                </widget>
+            </column>
+            <column name="supplier" numcolumns="4" order="120">
+                <widget type="autocomplete" fieldname="supplier_id" onclick="EditSupplier">
+                    <values source="suppliers" fieldcode="id" fieldtitle="name"/>
+                </widget>
+            </column>
+            <column name="status" numcolumns="4" order="130">
+                <widget type="select" fieldname="status" required="true">
+                    <values>
+                        <value title="Draft" value="draft">draft</value>
+                        <value title="Active" value="active">active</value>
+                        <value title="Archived" value="archived">archived</value>
+                    </values>
+                </widget>
+            </column>
+        </group>
+        
+        <!-- Pricing -->
+        <group name="pricing" numcolumns="12" icon="fa-solid fa-euro-sign">
+            <column name="cost" numcolumns="3" order="100">
+                <widget type="number" fieldname="cost" decimal="2" min="0"/>
+            </column>
+            <column name="price" numcolumns="3" order="110">
+                <widget type="number" fieldname="price" decimal="2" min="0" required="true"/>
+            </column>
+            <column name="tax" numcolumns="3" order="120">
+                <widget type="select" fieldname="tax_id">
+                    <values source="taxes" fieldcode="id" fieldtitle="name"/>
+                </widget>
+            </column>
+            <column name="discount" numcolumns="3" order="130">
+                <widget type="number" fieldname="discount" decimal="2" min="0" max="100"/>
+            </column>
+        </group>
+        
+        <!-- Metadata -->
+        <group name="metadata" numcolumns="12" icon="fa-solid fa-clock">
+            <column name="created-at" numcolumns="4" order="100">
+                <widget type="datetime" fieldname="created_at" readonly="true"/>
+            </column>
+            <column name="updated-at" numcolumns="4" order="110">
+                <widget type="datetime" fieldname="updated_at" readonly="true"/>
+            </column>
+            <column name="created-by" numcolumns="4" order="120">
+                <widget type="text" fieldname="created_by" readonly="true"/>
+            </column>
+        </group>
+    </columns>
+    
+    <rows>
+        <row type="statistics">
+            <datalabel icon="fa-solid fa-shopping-cart" label="total-sold" function="getTotalSold"/>
+            <datalabel icon="fa-solid fa-warehouse" label="stock" function="getStock"/>
+        </row>
+    </rows>
+</view>
+```
+
+## Using XMLViews in Controllers
+
+FacturaScripts has specialized controller types that automatically use XMLViews:
+
+### ListController
+
+For list pages:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Controller;
+
+use FacturaScripts\Core\Lib\ExtendedController\ListController;
+
+class ListMyModel extends ListController
+{
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'My Models';
+        $data['icon'] = 'fa-solid fa-list';
+        $data['menu'] = 'admin';
+        return $data;
+    }
+
+    protected function createViews()
+    {
+        $this->createViewMyModel();
+    }
+
+    protected function createViewMyModel($viewName = 'ListMyModel')
+    {
+        $this->addView($viewName, 'MyModel', 'my-models', 'fa-solid fa-list');
+        $this->addSearchFields($viewName, ['name', 'description']);
+        $this->addOrderBy($viewName, ['name'], 'name');
+        $this->addOrderBy($viewName, ['created_at'], 'date', 2);
+        
+        // Add filters
+        $this->addFilterCheckbox($viewName, 'active', 'active', 'active');
+    }
+}
+```
+
+### EditController
+
+For edit pages:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Controller;
+
+use FacturaScripts\Core\Lib\ExtendedController\EditController;
+
+class EditMyModel extends EditController
+{
+    public function getModelClassName(): string
+    {
+        return 'MyModel';
+    }
+
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'Edit My Model';
+        $data['icon'] = 'fa-solid fa-edit';
+        $data['menu'] = 'admin';
+        return $data;
+    }
+}
+```
+
+The `EditController` automatically:
+- Loads the XMLView from `XMLView/EditMyModel.xml`
+- Handles form submission
+- Performs validation
+- Shows success/error messages
+- Manages database operations
+
+## Custom Twig Templates
+
+For complete custom control, create Twig templates in `View/`:
+
+```twig
+{# View/MyCustomView.html.twig #}
+{% extends "Master/MenuTemplate.html.twig" %}
+
+{% block body %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <h1>{{ trans('my-custom-view') }}</h1>
+            
+            <form method="post">
+                <input type="hidden" name="multireqtoken" value="{{ fsc.formToken }}" />
+                
+                <div class="form-group">
+                    <label>{{ trans('name') }}</label>
+                    <input type="text" name="name" class="form-control" value="{{ fsc.model.name }}" />
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-save"></i> {{ trans('save') }}
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Use XMLViews" icon="file-code">
+    Prefer XMLViews over custom HTML for consistency
+  </Card>
+  
+  <Card title="Group Related Fields" icon="layer-group">
+    Organize fields into logical groups
+  </Card>
+  
+  <Card title="Set Proper Order" icon="sort-numeric-down">
+    Use order attributes to control field sequence
+  </Card>
+  
+  <Card title="Add Icons" icon="icons">
+    Use FontAwesome icons for visual clarity
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Controllers" icon="code" href="/dev/plugins/controllers">
+    Create controllers to use your views
+  </Card>
+  
+  <Card title="Models" icon="database" href="/dev/plugins/models">
+    Define data models
+  </Card>
+  
+  <Card title="Creating Plugins" icon="puzzle-piece" href="/dev/plugins/creating-plugins">
+    Back to plugin basics
+  </Card>
+</CardGroup>

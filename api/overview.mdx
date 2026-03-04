@@ -1,0 +1,234 @@
+---
+title: API Overview
+description: Overview of the FacturaScripts REST API, including base URL, versioning, and general usage
+icon: code
+---
+
+## Introduction
+
+The FacturaScripts REST API provides programmatic access to your FacturaScripts installation, allowing you to integrate with external applications, automate workflows, and build custom integrations.
+
+The API follows REST principles and uses JSON for request and response bodies. All API endpoints require authentication using API keys.
+
+## Base URL
+
+The API is accessed through your FacturaScripts installation URL with the `/api` prefix:
+
+```
+https://your-domain.com/api/{version}/{resource}
+```
+
+### Example
+
+```bash
+https://example.com/api/3/facturacliente
+```
+
+## API Versioning
+
+The FacturaScripts API uses version numbers in the URL path. The current API version is **v3**.
+
+<Note>
+All API requests must include the version number in the URL. The current version is `3`.
+</Note>
+
+### Version in URL
+
+```
+/api/3/{resource}
+```
+
+If you attempt to use an invalid or missing version, you'll receive a `400 Bad Request` error:
+
+```json
+{
+  "error": "api-version-invalid"
+}
+```
+
+## Enabling the API
+
+Before using the API, you must enable it in your FacturaScripts installation:
+
+1. Navigate to **Settings** in your FacturaScripts admin panel
+2. Enable the API option
+3. Create an API key for authentication (see [Authentication](/api/authentication))
+
+Alternatively, you can set a global API key in your configuration file by defining the `api_key` constant.
+
+## Request Format
+
+All API requests must:
+
+- Use HTTPS (recommended for production)
+- Include an `X-Auth-Token` header with a valid API key
+- Use appropriate HTTP methods (GET, POST, PUT, DELETE)
+- Send request bodies as JSON for POST/PUT requests
+
+### HTTP Methods
+
+The API supports standard REST HTTP methods:
+
+| Method | Description |
+|--------|-------------|
+| GET | Retrieve resources |
+| POST | Create new resources |
+| PUT/PATCH | Update existing resources |
+| DELETE | Delete resources |
+| OPTIONS | CORS preflight requests |
+
+## Response Format
+
+All API responses are returned in JSON format with appropriate HTTP status codes.
+
+### Success Response
+
+```json
+{
+  "doc": {
+    "idempresa": 1,
+    "codcliente": "CUST001",
+    "total": 1000.00
+  },
+  "lines": [
+    {
+      "referencia": "PROD001",
+      "cantidad": 2,
+      "pvpunitario": 500.00
+    }
+  ]
+}
+```
+
+### Error Response
+
+```json
+{
+  "status": "error",
+  "message": "customer-not-found"
+}
+```
+
+## HTTP Status Codes
+
+The API uses standard HTTP status codes:
+
+| Code | Description |
+|------|-------------|
+| 200 | Success |
+| 201 | Created |
+| 400 | Bad Request - Invalid parameters |
+| 401 | Unauthorized - Invalid API key |
+| 403 | Forbidden - Insufficient permissions |
+| 404 | Not Found - Resource doesn't exist |
+| 405 | Method Not Allowed |
+| 422 | Unprocessable Entity - Validation failed |
+| 500 | Internal Server Error |
+
+## Rate Limiting
+
+The API implements basic rate limiting through an incident tracking system:
+
+- Maximum of **5 failed authentication attempts** within **10 minutes**
+- After reaching the limit, the IP address is temporarily banned
+- Incidents expire after 10 minutes (600 seconds)
+
+<Warning>
+Repeated authentication failures will result in your IP address being temporarily blocked from accessing the API.
+</Warning>
+
+## CORS Support
+
+The API supports Cross-Origin Resource Sharing (CORS) for browser-based applications:
+
+- **Access-Control-Allow-Origin**: `*` (all origins)
+- **Access-Control-Allow-Methods**: `GET, POST, PUT, DELETE, PATCH, OPTIONS`
+- **Access-Control-Allow-Headers**: Custom headers as requested
+
+### Preflight Requests
+
+The API handles OPTIONS requests for CORS preflight:
+
+```bash
+OPTIONS /api/3/facturacliente HTTP/1.1
+Host: example.com
+Access-Control-Request-Method: POST
+Access-Control-Request-Headers: X-Auth-Token
+```
+
+## Available Resources
+
+To list all available API resources, make a GET request to the API root:
+
+```bash
+GET /api/3/
+X-Auth-Token: your-api-key
+```
+
+### Response
+
+```json
+{
+  "resources": [
+    "albarancliente",
+    "albaranproveedor",
+    "attachedfiles",
+    "cliente",
+    "crearFacturaCliente",
+    "exportarFacturaCliente",
+    "facturacliente",
+    "facturaproveedor",
+    "pagarFacturaCliente",
+    "plugins",
+    "producto",
+    "uploadFiles"
+  ]
+}
+```
+
+## Model Resources
+
+The API automatically exposes most FacturaScripts models as API resources. These are located in `/Dinamic/Lib/API/` and provide standard CRUD operations.
+
+### Standard Operations
+
+- **GET** `/api/3/{model}` - List all records
+- **GET** `/api/3/{model}/{id}` - Get single record
+- **GET** `/api/3/{model}/schema` - Get model schema
+- **POST** `/api/3/{model}` - Create new record
+- **PUT** `/api/3/{model}/{id}` - Update record
+- **DELETE** `/api/3/{model}/{id}` - Delete record
+
+## Custom Endpoints
+
+In addition to model resources, FacturaScripts provides custom endpoints for specific operations:
+
+- Document creation (invoices, orders, quotes)
+- Document export (PDF generation)
+- Payment processing
+- File upload and management
+- Plugin management
+
+See the [Endpoints](/api/endpoints) documentation for detailed information on each custom endpoint.
+
+## Error Handling
+
+Always check the HTTP status code and parse the response JSON for error messages:
+
+```javascript
+if (response.status >= 400) {
+  const error = await response.json();
+  console.error('API Error:', error.message);
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate API requests
+  </Card>
+  <Card title="Endpoints" icon="webhook" href="/api/endpoints">
+    Explore available API endpoints
+  </Card>
+</CardGroup>

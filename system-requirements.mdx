@@ -1,0 +1,422 @@
+---
+title: System Requirements
+description: Technical requirements for running FacturaScripts
+---
+
+FacturaScripts is designed to run on most modern web hosting environments. This page outlines the system requirements needed to run FacturaScripts successfully.
+
+## Minimum Requirements
+
+### PHP Requirements
+
+<ParamField path="PHP Version" type="string" required>
+  **Minimum**: PHP 8.0  
+  **Recommended**: PHP 8.1 or higher
+
+  FacturaScripts requires modern PHP features introduced in PHP 8.0+.
+</ParamField>
+
+### Required PHP Extensions
+
+These PHP extensions are **required** and must be enabled:
+
+| Extension | Purpose |
+|-----------|----------|
+| `ext-bcmath` | Precise decimal arithmetic for financial calculations |
+| `ext-curl` | HTTP requests and external API integrations |
+| `ext-dom` | XML document parsing and manipulation |
+| `ext-fileinfo` | File type detection for uploads |
+| `ext-gd` | Image processing and thumbnail generation |
+| `ext-json` | JSON encoding/decoding |
+| `ext-mysqli` | MySQL/MariaDB database connectivity |
+| `ext-pgsql` | PostgreSQL database connectivity |
+| `ext-simplexml` | XML parsing for configurations |
+| `ext-zip` | ZIP file handling for plugins and backups |
+
+<Accordion title="Check Installed Extensions">
+  To check which PHP extensions are installed on your system:
+
+  ```bash
+  # List all installed extensions
+  php -m
+
+  # Check specific extension
+  php -m | grep bcmath
+  ```
+
+  Or create a PHP info file:
+
+  ```php
+  <?php
+  phpinfo();
+  ```
+</Accordion>
+
+### Database Requirements
+
+<Tabs>
+  <Tab title="MySQL / MariaDB">
+    **Minimum Versions**:
+    - MySQL 5.7 or higher
+    - MariaDB 10.2 or higher
+
+    **Configuration**:
+    - InnoDB storage engine
+    - UTF-8 (utf8mb4) character set support
+    - `max_allowed_packet` ≥ 16MB
+
+    **Required Privileges**:
+    ```sql
+    GRANT SELECT, INSERT, UPDATE, DELETE, 
+          CREATE, ALTER, DROP, INDEX, 
+          REFERENCES, CREATE TEMPORARY TABLES
+    ON database_name.* TO 'user'@'localhost';
+    ```
+  </Tab>
+
+  <Tab title="PostgreSQL">
+    **Minimum Version**:
+    - PostgreSQL 9.5 or higher
+    - PostgreSQL 13+ recommended
+
+    **Configuration**:
+    - UTF-8 encoding
+    - Standard conforming strings enabled
+
+    **Required Privileges**:
+    ```sql
+    GRANT ALL PRIVILEGES ON DATABASE database_name TO user;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO user;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO user;
+    ```
+  </Tab>
+</Tabs>
+
+### Web Server Requirements
+
+<Tabs>
+  <Tab title="Apache">
+    **Minimum Version**: Apache 2.4+
+
+    **Required Modules**:
+    - `mod_rewrite` - URL rewriting
+    - `mod_headers` - HTTP header manipulation
+    - `mod_env` - Environment variables
+
+    **Enable modules**:
+    ```bash
+    sudo a2enmod rewrite headers env
+    sudo systemctl restart apache2
+    ```
+
+    **.htaccess Support**:
+    - `AllowOverride All` must be enabled in your virtual host configuration
+  </Tab>
+
+  <Tab title="Nginx">
+    **Minimum Version**: Nginx 1.14+
+
+    **Required Configuration**:
+    - PHP-FPM for PHP processing
+    - Proper rewrite rules for URL routing
+    - FastCGI parameters configured
+
+    **Sample Configuration**:
+    See [Installation Guide](/installation#nginx-configuration) for complete Nginx configuration.
+  </Tab>
+
+  <Tab title="PHP Built-in Server">
+    **Development Only**:
+    The PHP built-in server is suitable for development but **not recommended for production**.
+
+    ```bash
+    php -S localhost:8000 index.php
+    ```
+
+    <Warning>
+      Do not use the PHP built-in server in production environments. Use Apache or Nginx instead.
+    </Warning>
+  </Tab>
+</Tabs>
+
+## Recommended Requirements
+
+For optimal performance, especially with larger datasets or multiple concurrent users:
+
+### Server Resources
+
+<CardGroup cols={2}>
+  <Card title="Memory" icon="memory">
+    **Minimum**: 256 MB RAM  
+    **Recommended**: 512 MB+ RAM  
+    **Heavy Use**: 1 GB+ RAM
+  </Card>
+  <Card title="Storage" icon="hard-drive">
+    **Minimum**: 500 MB disk space  
+    **Recommended**: 2 GB+ disk space  
+    (for documents, backups, logs)
+  </Card>
+  <Card title="CPU" icon="microchip">
+    **Minimum**: 1 CPU core  
+    **Recommended**: 2+ CPU cores
+  </Card>
+  <Card title="Network" icon="network-wired">
+    Stable internet connection for:  
+    - Plugin downloads  
+    - Updates  
+    - External integrations
+  </Card>
+</CardGroup>
+
+### PHP Configuration
+
+Recommended `php.ini` settings:
+
+```ini
+; Memory limit
+memory_limit = 256M
+
+; Maximum execution time
+max_execution_time = 60
+
+; File upload limits
+upload_max_filesize = 20M
+post_max_size = 25M
+
+; Session configuration
+session.gc_maxlifetime = 3600
+session.cookie_httponly = 1
+session.cookie_secure = 1  ; If using HTTPS
+
+; Error reporting (production)
+error_reporting = E_ALL & ~E_DEPRECATED & ~E_STRICT
+display_errors = Off
+log_errors = On
+
+; Timezone
+date.timezone = Europe/Madrid
+```
+
+<Accordion title="Apply PHP Configuration Changes">
+  After modifying `php.ini`:
+
+  ```bash
+  # Restart Apache
+  sudo systemctl restart apache2
+
+  # Or restart PHP-FPM (for Nginx)
+  sudo systemctl restart php8.0-fpm
+
+  # Verify changes
+  php -i | grep memory_limit
+  ```
+</Accordion>
+
+## Development Requirements
+
+For plugin development or contributing to FacturaScripts core:
+
+### Additional Tools
+
+<Tabs>
+  <Tab title="Composer">
+    **Dependency Management**
+
+    ```bash
+    # Install Composer
+    curl -sS https://getcomposer.org/installer | php
+    sudo mv composer.phar /usr/local/bin/composer
+
+    # Verify installation
+    composer --version
+    ```
+
+    Required for installing PHP dependencies.
+  </Tab>
+
+  <Tab title="Node.js & npm">
+    **Frontend Assets**
+
+    ```bash
+    # Install Node.js 14+ and npm
+    curl -fsSL https://deb.nodesource.com/setup_16.x | sudo -E bash -
+    sudo apt-get install -y nodejs
+
+    # Verify installation
+    node --version
+    npm --version
+    ```
+
+    Required for compiling JavaScript and CSS assets.
+  </Tab>
+
+  <Tab title="Git">
+    **Version Control**
+
+    ```bash
+    # Install Git
+    sudo apt-get install git
+
+    # Verify installation
+    git --version
+    ```
+
+    Required for cloning the repository and contributing.
+  </Tab>
+</Tabs>
+
+### Development Dependencies
+
+These are automatically installed via Composer during development:
+
+- **PHPUnit 9.x** - Unit testing framework
+- **PHP_CodeSniffer 3.x** - Code style checking
+- **PHPStan** - Static analysis tool
+
+## Browser Requirements
+
+For the web interface, FacturaScripts supports:
+
+- **Chrome** 90+
+- **Firefox** 88+
+- **Safari** 14+
+- **Edge** 90+
+
+<Note>
+  Internet Explorer is **not supported**. Use a modern browser for the best experience.
+</Note>
+
+## Hosting Compatibility
+
+### Shared Hosting
+
+<Accordion title="Can I use shared hosting?">
+  Yes, FacturaScripts can run on shared hosting, provided:
+
+  ✅ PHP 8.0+ is available  
+  ✅ All required PHP extensions are enabled  
+  ✅ You have database access (MySQL/MariaDB)  
+  ✅ SSH access (recommended for Composer)
+
+  **Limitations**:
+  - Plugin installation may require manual upload
+  - Some hosting providers restrict certain PHP functions
+  - Performance may be limited by shared resources
+</Accordion>
+
+### Cloud Hosting
+
+Recommended cloud platforms:
+
+<CardGroup cols={3}>
+  <Card title="DigitalOcean" icon="cloud">
+    Droplets with 1GB+ RAM
+  </Card>
+  <Card title="AWS" icon="aws">
+    EC2 instances (t3.small+)
+  </Card>
+  <Card title="Google Cloud" icon="google">
+    Compute Engine VMs
+  </Card>
+  <Card title="Linode" icon="server">
+    Nanode 1GB+
+  </Card>
+  <Card title="Vultr" icon="server">
+    Cloud Compute 1GB+
+  </Card>
+  <Card title="Hetzner" icon="server">
+    Cloud servers CX11+
+  </Card>
+</CardGroup>
+
+### Docker
+
+<Accordion title="Docker support">
+  While FacturaScripts doesn't provide official Docker images, you can create your own:
+
+  **Base requirements**:
+  - PHP 8.0+ image with required extensions
+  - MySQL or PostgreSQL container
+  - Volume mounts for persistent data
+
+  See the [community Docker examples](https://github.com/NeoRazorX/facturascripts/discussions) for sample configurations.
+</Accordion>
+
+## Checking Your System
+
+### Automated Check
+
+FacturaScripts includes a system check during installation that verifies:
+
+- PHP version and extensions
+- Database connectivity
+- File permissions
+- Memory limits
+
+### Manual Check
+
+Create a `phpinfo.php` file in your web root:
+
+```php
+<?php
+phpinfo();
+```
+
+Access it via your browser and verify:
+1. PHP version ≥ 8.0
+2. All required extensions are loaded
+3. Configuration matches recommendations
+
+<Warning>
+  Delete the `phpinfo.php` file after checking to avoid exposing server information.
+</Warning>
+
+## Performance Considerations
+
+<Accordion title="Database Performance">
+  For optimal database performance:
+
+  - Use InnoDB engine for MySQL (not MyISAM)
+  - Enable query cache (if MySQL < 8.0)
+  - Regular maintenance (OPTIMIZE TABLE)
+  - Proper indexes (handled automatically by FacturaScripts)
+</Accordion>
+
+<Accordion title="Caching">
+  Enable caching in production:
+
+  ```php
+  // config.php
+  define('FS_CACHE_ENABLED', true);
+  define('FS_CACHE_LIFETIME', 3600);
+  ```
+
+  Consider using:
+  - OpCache for PHP bytecode caching
+  - Redis or Memcached for data caching (requires plugins)
+</Accordion>
+
+<Accordion title="File System">
+  For better file I/O performance:
+
+  - Use SSD storage if possible
+  - Ensure `MyFiles/` directory has fast disk access
+  - Regular backups to separate storage
+</Accordion>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install FacturaScripts on your server
+  </Card>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get started after installation
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Common issues and solutions
+  </Card>
+  <Card title="Support" icon="life-ring" href="/resources/support">
+    Get help from the community
+  </Card>
+</CardGroup>

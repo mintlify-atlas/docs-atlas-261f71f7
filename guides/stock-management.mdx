@@ -1,0 +1,433 @@
+---
+title: Managing Inventory and Stock
+description: Complete guide to warehouse management, stock tracking, and inventory control in FacturaScripts
+---
+
+This guide covers everything you need to manage inventory and stock across multiple warehouses in FacturaScripts.
+
+## Understanding Warehouses
+
+FacturaScripts uses the **Almacen** model (EditAlmacen.php) for warehouse management. Each warehouse:
+
+- Maintains separate stock levels for products
+- Tracks stock movements (purchases, sales, transfers)
+- Monitors reserved, available, and pending stock
+- Supports location-based inventory management
+
+## Creating a Warehouse
+
+<Steps>
+  <Step title="Navigate to Warehouses">
+    Go to **Warehouse** menu and select **Warehouses** (EditAlmacen.php:44).
+  </Step>
+  
+  <Step title="Create New Warehouse">
+    Click the **New** button to open the warehouse creation form.
+  </Step>
+  
+  <Step title="Enter Warehouse Details">
+    Fill in the required information:
+    - **Code (Código)**: Unique warehouse identifier
+    - **Name (Nombre)**: Descriptive warehouse name
+    - **Company**: Associated company (if multi-company setup) (EditAlmacen.php:109)
+  </Step>
+  
+  <Step title="Configure Location">
+    Optionally add location details:
+    - Address
+    - Contact person
+    - Phone number
+    - Notes
+  </Step>
+  
+  <Step title="Save Warehouse">
+    Click **Save** to create the warehouse. You can now start managing stock in this location.
+  </Step>
+</Steps>
+
+## Viewing Stock Levels
+
+Once a warehouse is created, you can view and manage its stock:
+
+<Steps>
+  <Step title="Open Warehouse">
+    Navigate to the warehouse record you want to view.
+  </Step>
+  
+  <Step title="Access Stock Tab">
+    Click the **Stock** tab to view all products in this warehouse (EditAlmacen.php:50).
+  </Step>
+  
+  <Step title="View Stock Information">
+    For each product, you can see:
+    - **Reference**: Product code
+    - **Description**: Product name
+    - **Quantity**: Total physical stock (EditAlmacen.php:55)
+    - **Available**: Stock available for sale (EditAlmacen.php:56)
+    - **Reserved**: Stock allocated to pending orders (EditAlmacen.php:57)
+    - **Pending Reception**: Stock on purchase orders (EditAlmacen.php:58)
+    - **Location**: Storage location within warehouse
+  </Step>
+</Steps>
+
+## Understanding Stock Types
+
+FacturaScripts tracks multiple stock quantities:
+
+<CardGroup cols={3}>
+  <Card title="Physical Quantity" icon="boxes-stacked">
+    Total stock in the warehouse. This is the actual count of items available.
+  </Card>
+  
+  <Card title="Available Stock" icon="check-circle">
+    Physical quantity minus reserved stock. This represents stock that can be sold or allocated.
+  </Card>
+  
+  <Card title="Reserved Stock" icon="lock">
+    Stock allocated to pending orders or deliveries that haven't been completed yet.
+  </Card>
+  
+  <Card title="Pending Reception" icon="truck-ramp-box">
+    Stock on purchase orders that has been ordered but not yet received.
+  </Card>
+  
+  <Card title="Minimum Stock" icon="gauge-low">
+    Threshold for reorder alerts. When available stock drops below this level, you receive warnings.
+  </Card>
+  
+  <Card title="Maximum Stock" icon="gauge-high">
+    Upper limit for stock levels. Helps identify overstocking situations.
+  </Card>
+</CardGroup>
+
+## Filtering and Searching Stock
+
+The stock view provides powerful filtering options (EditAlmacen.php:68):
+
+<Tabs>
+  <Tab title="By Product">
+    Search stock by:
+    - **Reference**: Product code or barcode (EditAlmacen.php:53)
+    - **Description**: Product name (EditAlmacen.php:53)
+    - **Location**: Storage location within warehouse (EditAlmacen.php:53)
+  </Tab>
+  
+  <Tab title="By Manufacturer">
+    Filter products by manufacturer (EditAlmacen.php:62):
+    - Select from dropdown of all manufacturers
+    - View stock levels for specific brands
+    - Analyze inventory by supplier
+  </Tab>
+  
+  <Tab title="By Family">
+    Filter by product family or category (EditAlmacen.php:65):
+    - Group related products
+    - View stock by product line
+    - Analyze category performance
+  </Tab>
+  
+  <Tab title="By Stock Level">
+    Filter based on stock status (EditAlmacen.php:68):
+    - **Under Minimums**: Products below minimum stock level (EditAlmacen.php:78)
+    - **Excess**: Products above maximum stock level (EditAlmacen.php:82)
+    - **Custom Range**: Filter by specific quantity ranges (EditAlmacen.php:87)
+  </Tab>
+</Tabs>
+
+## Stock Movements
+
+Stock levels change automatically through various operations:
+
+<Steps>
+  <Step title="Purchase Orders">
+    When you receive products:
+    1. Create or process a supplier delivery note
+    2. Confirm the receipt
+    3. Stock increases in the receiving warehouse
+    4. "Pending reception" decreases
+  </Step>
+  
+  <Step title="Sales Orders">
+    When you sell products:
+    1. Create a customer order
+    2. Stock is reserved (reduces available quantity)
+    3. When delivery note is created, stock reduces
+    4. Available and physical quantities decrease
+  </Step>
+  
+  <Step title="Direct Adjustments">
+    For inventory corrections:
+    1. Navigate to the product's stock card
+    2. Make a stock adjustment entry
+    3. Specify reason (damage, loss, count correction)
+    4. Stock updates immediately
+  </Step>
+  
+  <Step title="Transfers">
+    To move stock between warehouses:
+    1. Create a transfer document
+    2. Select source and destination warehouses
+    3. Specify products and quantities
+    4. Stock decreases in source, increases in destination
+  </Step>
+</Steps>
+
+## Stock Sorting and Organization
+
+Organize stock views for better management (EditAlmacen.php:54):
+
+<AccordionGroup>
+  <Accordion title="Sort by Reference" icon="barcode">
+    View products in alphabetical order by product code. Useful for physical counting and location-based organization.
+  </Accordion>
+  
+  <Accordion title="Sort by Quantity" icon="arrow-up-9-1">
+    See products ordered by stock quantity (EditAlmacen.php:55). Helps identify:
+    - Highest volume items
+    - Fast-moving products
+    - Stock concentration
+  </Accordion>
+  
+  <Accordion title="Sort by Available" icon="check-to-slot">
+    Order by available quantity (EditAlmacen.php:56). Highlights:
+    - Products with low availability
+    - Items at risk of stockout
+    - Reorder priorities
+  </Accordion>
+  
+  <Accordion title="Sort by Reserved" icon="calendar-check">
+    View by reserved quantity (EditAlmacen.php:57). Shows:
+    - High-demand products
+    - Pending order fulfillment
+    - Allocation priorities
+  </Accordion>
+  
+  <Accordion title="Sort by Product Name" icon="spell-check">
+    Alphabetical by description (EditAlmacen.php:59). Useful for:
+    - Customer-facing reports
+    - Product catalog organization
+    - General browsing
+  </Accordion>
+</AccordionGroup>
+
+## Managing Stock Locations
+
+Within each warehouse, you can organize products by location:
+
+<Steps>
+  <Step title="Define Locations">
+    Create a location naming scheme, such as:
+    - Aisle-Rack-Shelf (e.g., "A-12-3")
+    - Zone-Row-Position (e.g., "Z1-R5-P8")
+    - Bin numbers (e.g., "BIN-0042")
+  </Step>
+  
+  <Step title="Assign Products to Locations">
+    In the stock view:
+    1. Select a product
+    2. Enter the storage location
+    3. Save the update
+  </Step>
+  
+  <Step title="Search by Location">
+    Use location search to:
+    - Find all products in a specific area
+    - Plan picking routes
+    - Optimize warehouse layout
+  </Step>
+</Steps>
+
+## Stock Alerts and Monitoring
+
+<Tabs>
+  <Tab title="Low Stock Alerts">
+    Monitor products below minimum levels:
+    1. Go to warehouse stock view
+    2. Select **Under Minimums** filter (EditAlmacen.php:78)
+    3. Review the list of products needing reorder
+    4. Create purchase orders for replenishment
+  </Tab>
+  
+  <Tab title="Overstock Alerts">
+    Identify excess inventory:
+    1. Apply **Excess** filter (EditAlmacen.php:82)
+    2. Review products above maximum levels
+    3. Consider promotions or transfers
+    4. Adjust purchasing plans
+  </Tab>
+  
+  <Tab title="Custom Monitoring">
+    Set up custom stock monitoring:
+    1. Use quantity range filters (EditAlmacen.php:87)
+    2. Define max/min thresholds
+    3. Export reports for analysis
+    4. Track trends over time
+  </Tab>
+</Tabs>
+
+## Multi-Warehouse Management
+
+When working with multiple warehouses:
+
+<AccordionGroup>
+  <Accordion title="View Total Stock" icon="chart-pie">
+    To see stock across all warehouses:
+    1. Navigate to the product record
+    2. View the stock summary tab
+    3. See breakdown by warehouse
+    4. Compare stock levels across locations
+  </Accordion>
+  
+  <Accordion title="Transfer Between Warehouses" icon="right-left">
+    To move stock:
+    1. Create a transfer document
+    2. Select source warehouse
+    3. Choose destination warehouse
+    4. Add products and quantities
+    5. Process the transfer to update both locations
+  </Accordion>
+  
+  <Accordion title="Default Warehouse" icon="star">
+    Set a default warehouse for:
+    - New sales documents
+    - Quick order processing
+    - Default stock checking
+    
+    Configure in **Administration** > **Configuration**.
+  </Accordion>
+  
+  <Accordion title="Warehouse Permissions" icon="user-lock">
+    Control user access to warehouses:
+    1. Configure user roles
+    2. Assign warehouse permissions
+    3. Limit visibility and edit rights
+    4. Audit stock changes by user
+  </Accordion>
+</AccordionGroup>
+
+## Stock Reports and Analysis
+
+<CardGroup cols={2}>
+  <Card title="Stock Valuation" icon="dollar-sign">
+    Generate reports showing:
+    - Total inventory value by warehouse
+    - Value by product family
+    - Cost vs. sale price analysis
+    - Inventory turnover rates
+  </Card>
+  
+  <Card title="Movement History" icon="clock-rotate-left">
+    Track stock movements:
+    - Purchases received
+    - Sales fulfilled
+    - Adjustments made
+    - Transfers completed
+  </Card>
+  
+  <Card title="Reorder Reports" icon="cart-shopping">
+    Identify reorder needs:
+    - Products below minimum
+    - Projected stockouts
+    - Recommended order quantities
+    - Supplier information
+  </Card>
+  
+  <Card title="Dead Stock Analysis" icon="skull-crossbones">
+    Find slow-moving inventory:
+    - No movement in X days
+    - Excess stock situations
+    - Obsolete products
+    - Clearance candidates
+  </Card>
+</CardGroup>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Regular Stock Counts" icon="clipboard-list">
+    Perform physical inventory counts:
+    - **Daily**: High-value or fast-moving items
+    - **Weekly**: Regular products in active areas
+    - **Monthly**: Full warehouse count
+    - **Annually**: Complete inventory audit
+    
+    Always investigate and correct discrepancies immediately.
+  </Accordion>
+  
+  <Accordion title="Set Appropriate Minimums" icon="gauge">
+    Configure minimum stock levels based on:
+    - Average daily sales
+    - Lead time from suppliers
+    - Safety stock buffer
+    - Seasonal demand patterns
+    
+    Review and adjust minimums quarterly.
+  </Accordion>
+  
+  <Accordion title="Use Locations Consistently" icon="map-location-dot">
+    Maintain location accuracy:
+    - Update locations when moving products
+    - Follow your naming scheme strictly
+    - Train staff on location codes
+    - Audit locations regularly
+  </Accordion>
+  
+  <Accordion title="Monitor Reserved Stock" icon="eye">
+    Keep track of reservations:
+    - Review old orders regularly
+    - Release reservations for cancelled orders
+    - Avoid over-committing stock
+    - Maintain buffer for new orders
+  </Accordion>
+</AccordionGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Negative Stock" icon="triangle-exclamation">
+    If stock shows negative:
+    1. Check recent sales and deliveries
+    2. Verify if orders were processed correctly
+    3. Review manual adjustments
+    4. Correct the stock level with an adjustment
+    
+    Configure system to prevent negative stock in settings.
+  </Accordion>
+  
+  <Accordion title="Stock Discrepancies" icon="not-equal">
+    When physical count doesn't match system:
+    1. Recount the physical stock
+    2. Check for unprocessed movements
+    3. Review recent transactions
+    4. Make adjustment entry with notes
+    5. Investigate root cause
+  </Accordion>
+  
+  <Accordion title="Missing Stock Records" icon="question">
+    If a product shows no stock record:
+    1. Verify product is active
+    2. Check if product has been received
+    3. Review warehouse assignments
+    4. Create initial stock entry if needed
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Creating Invoices" icon="file-invoice-dollar" href="/guides/creating-invoices">
+    Learn how invoices affect stock levels
+  </Card>
+  
+  <Card title="Inventory Features" icon="warehouse" href="/features/inventory">
+    Explore advanced inventory features
+  </Card>
+  
+  <Card title="Reports" icon="chart-bar" href="/features/reports">
+    Generate stock and inventory reports
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure warehouse and stock settings
+  </Card>
+</CardGroup>

@@ -1,0 +1,276 @@
+---
+title: Creating Invoices and Quotes
+description: Step-by-step guide to creating customer invoices, estimates, and managing receipts in FacturaScripts
+---
+
+This guide walks you through the complete process of creating invoices and quotes for your customers in FacturaScripts.
+
+## Understanding Sales Documents
+
+FacturaScripts supports several types of sales documents:
+
+- **Estimates (Presupuestos)**: Non-binding quotes for potential customers
+- **Orders (Pedidos)**: Confirmed customer orders
+- **Delivery Notes (Albaranes)**: Shipping documentation
+- **Invoices (Facturas)**: Final billing documents
+
+Each document type can be converted to the next stage in the sales process.
+
+## Creating a Customer Invoice
+
+<Steps>
+  <Step title="Navigate to Sales">
+    Go to the **Sales** menu and select **Invoices** from the dropdown. This opens the invoice list view.
+  </Step>
+  
+  <Step title="Create New Invoice">
+    Click the **New** button to open the invoice creation form. The system will automatically:
+    - Assign the next invoice number based on your series configuration
+    - Set today's date as the invoice date
+    - Select the default warehouse
+  </Step>
+  
+  <Step title="Select Customer">
+    Start typing the customer name or code in the customer field. The autocomplete will show matching customers. Select the appropriate customer.
+    
+    <Tip>If the customer doesn't exist, click the **+** button to create a new customer record inline.</Tip>
+  </Step>
+  
+  <Step title="Configure Invoice Details">
+    Set the following invoice parameters:
+    - **Series (Serie)**: Invoice series for numbering
+    - **Date (Fecha)**: Invoice date
+    - **Payment Method (Forma de pago)**: Customer's payment method
+    - **Warehouse (Almacén)**: Source warehouse for stock
+  </Step>
+  
+  <Step title="Add Invoice Lines">
+    Add products or services to the invoice:
+    
+    1. Click **Add Line** or start typing in the reference field
+    2. Select a product from the autocomplete list
+    3. Enter the quantity
+    4. The system automatically calculates:
+       - Unit price from the product's price list
+       - Line discount (if applicable)
+       - Tax rates based on product configuration
+       - Line total
+    
+    <Note>You can add custom lines without a product by entering a description directly.</Note>
+  </Step>
+  
+  <Step title="Apply Discounts">
+    Apply discounts at two levels:
+    - **Line discount**: Applied to individual lines
+    - **Document discount**: Applied to the entire invoice subtotal
+    
+    The system recalculates totals automatically as you make changes.
+  </Step>
+  
+  <Step title="Review Totals">
+    Verify the calculated amounts:
+    - **Net Amount (Base imponible)**: Sum before taxes
+    - **Taxes (IVA/IRPF)**: Applied tax amounts
+    - **Total**: Final invoice amount
+  </Step>
+  
+  <Step title="Save Invoice">
+    Click **Save** to create the invoice. The invoice remains editable by default unless you lock it.
+  </Step>
+</Steps>
+
+## Creating Quotes (Estimates)
+
+The process for creating estimates is similar to invoices:
+
+<Steps>
+  <Step title="Open Estimates Module">
+    Navigate to **Sales** > **Estimates**.
+  </Step>
+  
+  <Step title="Create Estimate">
+    Click **New** and fill in customer details and line items following the same process as invoices.
+  </Step>
+  
+  <Step title="Convert to Invoice">
+    When the customer accepts the estimate:
+    1. Open the estimate
+    2. Click the **Generate** button
+    3. Select **Invoice** from the dropdown
+    4. The system creates a new invoice with all estimate details
+  </Step>
+</Steps>
+
+## Generating Payment Receipts
+
+After creating an invoice, you can generate payment receipts based on the payment method:
+
+<Steps>
+  <Step title="Open Invoice">
+    Navigate to the saved invoice (EditFacturaCliente.php:176).
+  </Step>
+  
+  <Step title="Generate Receipts">
+    Click the **Receipts** tab, then click **Generate Receipts** (EditFacturaCliente.php:99).
+  </Step>
+  
+  <Step title="Configure Payment Schedule">
+    Choose one of two options:
+    
+    **Automatic Split**: Enter the number of receipts to split the payment into equal installments.
+    
+    **Custom Amounts**: Specify exact amounts for each receipt (up to 5 receipts) by entering amounts in the provided fields (EditFacturaCliente.php:189-199).
+  </Step>
+  
+  <Step title="Mark as Paid">
+    To mark receipts as paid:
+    1. Select the receipts using checkboxes
+    2. Click the **Paid** button
+    3. Confirm the action (EditFacturaCliente.php:104)
+  </Step>
+</Steps>
+
+<Warning>
+Receipts must total the invoice amount. The system warns you if there's a mismatch (EditFacturaCliente.php:399).
+</Warning>
+
+## Creating Refund Invoices
+
+To create a refund or credit note for an existing invoice:
+
+<Steps>
+  <Step title="Open Original Invoice">
+    Navigate to the invoice you need to refund.
+  </Step>
+  
+  <Step title="Access Refunds Tab">
+    Click the **Refunds** tab (EditFacturaCliente.php:82).
+  </Step>
+  
+  <Step title="Select Items to Refund">
+    For each invoice line, enter the quantity to refund in the corresponding field (EditFacturaCliente.php:304).
+  </Step>
+  
+  <Step title="Configure Refund Details">
+    Set the refund invoice parameters:
+    - **Series (codserie)**: Series for the refund invoice
+    - **Date (fecha)**: Refund invoice date
+    - **Notes (observaciones)**: Reason for the refund
+    - **Status (idestado)**: Invoice status
+  </Step>
+  
+  <Step title="Create Refund">
+    Click **Create Refund**. The system:
+    1. Locks the original invoice if it was editable (EditFacturaCliente.php:316)
+    2. Creates a new invoice with negative quantities (EditFacturaCliente.php:331)
+    3. Links it to the original invoice
+    4. Recalculates all totals (EditFacturaCliente.php:357)
+    5. If the original was paid, marks refund receipts as paid (EditFacturaCliente.php:363)
+  </Step>
+</Steps>
+
+## Generating Accounting Entries
+
+To generate accounting entries from an invoice:
+
+<Steps>
+  <Step title="Open Invoice">
+    Navigate to the invoice in the edit view.
+  </Step>
+  
+  <Step title="Generate Entry">
+    1. Click the **Accounting Entries** tab
+    2. Click **Generate Accounting Entry** (EditFacturaCliente.php:68)
+    3. The system creates the accounting entry automatically (EditFacturaCliente.php:160)
+  </Step>
+  
+  <Step title="Review Entry">
+    The accounting entry appears in the tab with:
+    - Debit entries for accounts receivable
+    - Credit entries for revenue and taxes
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Invoice Numbering" icon="hashtag">
+    Configure invoice series in **Administration** > **Series** to:
+    - Separate different business units
+    - Distinguish invoice types (regular, simplified, etc.)
+    - Maintain sequential numbering per series
+  </Accordion>
+  
+  <Accordion title="Inventory Management" icon="warehouse">
+    Always verify:
+    - Products have sufficient stock in the selected warehouse
+    - Stock movements are recorded correctly
+    - Reserved stock is updated for pending orders
+  </Accordion>
+  
+  <Accordion title="Tax Configuration" icon="percent">
+    Ensure products have correct tax settings:
+    - Standard VAT rate (IVA)
+    - Reduced rates for specific categories
+    - Tax exemptions where applicable
+    - IRPF withholding for professionals
+  </Accordion>
+  
+  <Accordion title="Customer Data" icon="user">
+    Maintain complete customer records with:
+    - Valid tax ID (NIF/CIF)
+    - Complete billing address
+    - Correct VAT regime
+    - Updated contact information
+  </Accordion>
+</AccordionGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Receipt totals don't match invoice" icon="triangle-exclamation">
+    If you see a warning about receipt differences:
+    1. Check the sum of all receipt amounts
+    2. Delete incorrect receipts
+    3. Generate new receipts with correct amounts
+    
+    The system shows the difference amount in the warning message (EditFacturaCliente.php:400).
+  </Accordion>
+  
+  <Accordion title="Can't edit invoice" icon="lock">
+    Invoices become locked when:
+    - Their status is set to non-editable
+    - Accounting entries have been generated
+    - They have associated refund invoices
+    
+    To edit, you may need to delete associated records first or create a refund invoice.
+  </Accordion>
+  
+  <Accordion title="Product not found in autocomplete" icon="search">
+    If a product doesn't appear:
+    - Verify the product is active
+    - Check it's not marked as discontinued
+    - Ensure it's available in the selected warehouse
+    - Search by reference, barcode, or description
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Managing Customers" icon="users" href="/guides/managing-customers">
+    Learn how to create and manage customer records
+  </Card>
+  
+  <Card title="Stock Management" icon="boxes-stacked" href="/guides/stock-management">
+    Manage inventory and warehouse operations
+  </Card>
+  
+  <Card title="Accounting Entries" icon="balance-scale" href="/guides/accounting-entries">
+    Work with accounting entries and ledgers
+  </Card>
+  
+  <Card title="Invoicing Features" icon="file-invoice-dollar" href="/features/invoicing">
+    Explore advanced invoicing features
+  </Card>
+</CardGroup>

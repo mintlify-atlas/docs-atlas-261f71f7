@@ -1,0 +1,763 @@
+---
+title: Creating Data Models
+description: Define database models and perform CRUD operations in FacturaScripts
+---
+
+Models in FacturaScripts represent database tables and provide an object-oriented interface for data manipulation.
+
+## Model Base Class
+
+All models extend `FacturaScripts\Core\Template\ModelClass` and use `ModelTrait`.
+
+**Location:** `Core/Template/ModelClass.php` and `Core/Template/ModelTrait.php`
+
+## Creating a Basic Model
+
+### Step 1: Create Model Class
+
+Create `Model/MyModel.php` in your plugin:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Model;
+
+use FacturaScripts\Core\Template\ModelClass;
+use FacturaScripts\Core\Template\ModelTrait;
+
+class MyModel extends ModelClass
+{
+    use ModelTrait;
+
+    /**
+     * Primary key
+     * @var int
+     */
+    public $id;
+
+    /**
+     * Model name
+     * @var string
+     */
+    public $name;
+
+    /**
+     * Description
+     * @var string
+     */
+    public $description;
+
+    /**
+     * Active status
+     * @var bool
+     */
+    public $active;
+
+    /**
+     * Creation date
+     * @var string
+     */
+    public $created_at;
+
+    /**
+     * Returns the primary column name
+     */
+    public static function primaryColumn(): string
+    {
+        return 'id';
+    }
+
+    /**
+     * Returns the table name
+     */
+    public static function tableName(): string
+    {
+        return 'mymodel';
+    }
+
+    /**
+     * Reset default values
+     */
+    public function clear()
+    {
+        parent::clear();
+        $this->active = true;
+        $this->created_at = date('Y-m-d H:i:s');
+    }
+
+    /**
+     * Returns the installation SQL
+     */
+    public function install(): string
+    {
+        return '';
+    }
+}
+```
+
+### Step 2: Create Table Definition
+
+Create `Table/mymodel.xml` in your plugin:
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<table>
+    <column>
+        <name>id</name>
+        <type>serial</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>name</name>
+        <type>character varying(100)</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>description</name>
+        <type>text</type>
+    </column>
+    <column>
+        <name>active</name>
+        <type>boolean</type>
+        <default>true</default>
+    </column>
+    <column>
+        <name>created_at</name>
+        <type>timestamp</type>
+        <default>CURRENT_TIMESTAMP</default>
+    </column>
+    <constraint>
+        <name>mymodel_pkey</name>
+        <type>PRIMARY KEY (id)</type>
+    </constraint>
+</table>
+```
+
+## Required Methods
+
+Every model must implement these methods:
+
+### primaryColumn()
+
+Returns the primary key column name:
+
+```php
+public static function primaryColumn(): string
+{
+    return 'id';
+}
+```
+
+For composite primary keys, return the main column and handle others in your logic.
+
+### tableName()
+
+Returns the database table name (lowercase):
+
+```php
+public static function tableName(): string
+{
+    return 'mymodel';
+}
+```
+
+<Note>
+Table names should be lowercase to ensure compatibility across different database systems.
+</Note>
+
+### clear()
+
+Resets model to default values:
+
+```php
+public function clear()
+{
+    parent::clear();
+    $this->id = null;
+    $this->name = '';
+    $this->active = true;
+    $this->created_at = date('Y-m-d H:i:s');
+}
+```
+
+### install()
+
+Returns custom SQL to run on installation:
+
+```php
+public function install(): string
+{
+    // Return empty string if table is defined in Table/ XML
+    return '';
+    
+    // Or return custom SQL
+    return 'CREATE INDEX idx_mymodel_name ON mymodel(name);';
+}
+```
+
+## CRUD Operations
+
+### Creating Records
+
+```php
+use FacturaScripts\Plugins\YourPlugin\Model\MyModel;
+
+// Method 1: Create and save
+$model = new MyModel();
+$model->name = 'Example';
+$model->description = 'This is an example';
+if ($model->save()) {
+    echo 'Saved with ID: ' . $model->id;
+}
+
+// Method 2: Create with data
+$model = MyModel::create([
+    'name' => 'Example',
+    'description' => 'This is an example'
+]);
+
+// Method 3: Update or create
+$model = MyModel::updateOrCreate(
+    ['name' => 'Example'],           // Find by these fields
+    ['description' => 'Updated']     // Update these fields
+);
+
+// Method 4: Find or create
+$model = MyModel::findOrCreate(
+    ['name' => 'Example'],           // Find by these fields
+    ['description' => 'Default']     // Create with these if not found
+);
+```
+
+### Reading Records
+
+```php
+// Find by primary key
+$model = MyModel::find($id);
+if ($model) {
+    echo $model->name;
+}
+
+// Find by field
+$model = MyModel::findWhereEq('name', 'Example');
+
+// Find with conditions
+$model = MyModel::findWhere(
+    ['active' => true],
+    ['created_at' => 'DESC']
+);
+
+// Get all records
+$models = MyModel::all();
+
+// Get with conditions
+$models = MyModel::all(
+    ['active' => true],           // WHERE conditions
+    ['name' => 'ASC'],           // ORDER BY
+    0,                           // OFFSET
+    50                           // LIMIT
+);
+
+// Count records
+$total = MyModel::count(['active' => true]);
+```
+
+### Updating Records
+
+```php
+// Load and update
+$model = MyModel::find($id);
+if ($model) {
+    $model->name = 'Updated Name';
+    $model->save();
+}
+
+// Load from array
+$model = MyModel::find($id);
+$model->loadFromData([
+    'name' => 'New Name',
+    'description' => 'New Description'
+]);
+$model->save();
+```
+
+### Deleting Records
+
+```php
+// Delete single record
+$model = MyModel::find($id);
+if ($model && $model->delete()) {
+    echo 'Deleted';
+}
+
+// Delete by conditions
+MyModel::deleteWhere(['active' => false]);
+```
+
+## Advanced Queries
+
+### Using the Query Builder
+
+```php
+// Basic query
+$models = MyModel::table()
+    ->whereEq('active', true)
+    ->orderBy('name', 'ASC')
+    ->limit(10)
+    ->get();
+
+// Complex conditions
+$models = MyModel::table()
+    ->where([
+        ['active', '=', true],
+        ['created_at', '>', '2024-01-01']
+    ])
+    ->get();
+
+// Get single record
+$model = MyModel::table()
+    ->whereEq('name', 'Example')
+    ->first();
+
+// Count
+$count = MyModel::table()
+    ->where(['active' => true])
+    ->count();
+
+// Sum
+$total = MyModel::table()
+    ->where(['active' => true])
+    ->sum('amount');
+```
+
+### Raw SQL
+
+```php
+use FacturaScripts\Core\Base\DataBase;
+
+$db = new DataBase();
+
+// Select
+$sql = 'SELECT * FROM mymodel WHERE active = ? ORDER BY name';
+$data = $db->select($sql, [true]);
+
+// Execute
+$sql = 'UPDATE mymodel SET active = ? WHERE id = ?';
+$db->exec($sql, [false, $id]);
+```
+
+## Model Properties
+
+### Public Properties
+
+Define public properties for each table column:
+
+```php
+class MyModel extends ModelClass
+{
+    /** @var int Primary key */
+    public $id;
+    
+    /** @var string */
+    public $name;
+    
+    /** @var float */
+    public $price;
+    
+    /** @var bool */
+    public $active;
+    
+    /** @var string Date in Y-m-d format */
+    public $created_at;
+}
+```
+
+### Property Types
+
+Common types used in models:
+
+- `int` - Integers
+- `float` - Decimal numbers
+- `string` - Text, dates, timestamps
+- `bool` - Boolean values
+- `array` - JSON fields (automatically serialized)
+
+## Validation
+
+Override the `test()` method to validate before save:
+
+```php
+public function test(): bool
+{
+    // Trim strings
+    $this->name = trim($this->name);
+    
+    // Validate required fields
+    if (empty($this->name)) {
+        Tools::log()->warning('name-required');
+        return false;
+    }
+    
+    // Validate length
+    if (strlen($this->name) > 100) {
+        Tools::log()->warning('name-too-long');
+        return false;
+    }
+    
+    // Validate uniqueness
+    if ($this->exists()) {
+        $duplicate = MyModel::findWhere([
+            ['name', '=', $this->name],
+            ['id', '!=', $this->id]
+        ]);
+        if ($duplicate) {
+            Tools::log()->warning('duplicate-name');
+            return false;
+        }
+    }
+    
+    // Validate numeric ranges
+    if ($this->price < 0) {
+        Tools::log()->warning('price-negative');
+        return false;
+    }
+    
+    return parent::test();
+}
+```
+
+## Model Events
+
+Use pipe methods to hook into model lifecycle:
+
+```php
+protected function saveInsert(): bool
+{
+    // Before insert
+    if (false === $this->pipeFalse('saveInsert')) {
+        return false;
+    }
+    
+    $result = parent::saveInsert();
+    
+    // After insert
+    $this->pipe('saveInsertAfter');
+    
+    return $result;
+}
+
+protected function saveUpdate(): bool
+{
+    // Before update
+    if (false === $this->pipeFalse('saveUpdate')) {
+        return false;
+    }
+    
+    $result = parent::saveUpdate();
+    
+    // After update
+    $this->pipe('saveUpdateAfter');
+    
+    return $result;
+}
+
+protected function onDelete(): bool
+{
+    // Before delete
+    if (false === $this->pipeFalse('delete')) {
+        return false;
+    }
+    
+    return parent::onDelete();
+}
+```
+
+## Relationships
+
+### One-to-Many
+
+```php
+class Customer extends ModelClass
+{
+    use ModelTrait;
+    
+    public $id;
+    public $name;
+    
+    /**
+     * Get customer invoices
+     * @return Invoice[]
+     */
+    public function getInvoices(): array
+    {
+        return Invoice::all(
+            ['customer_id' => $this->id],
+            ['date' => 'DESC']
+        );
+    }
+}
+
+class Invoice extends ModelClass
+{
+    use ModelTrait;
+    
+    public $id;
+    public $customer_id;
+    public $total;
+    
+    /**
+     * Get customer
+     * @return Customer|null
+     */
+    public function getCustomer(): ?Customer
+    {
+        return Customer::find($this->customer_id);
+    }
+}
+```
+
+### Many-to-Many
+
+Use a pivot table:
+
+```php
+class Product extends ModelClass
+{
+    use ModelTrait;
+    
+    public $id;
+    public $name;
+    
+    /**
+     * Get product categories
+     * @return Category[]
+     */
+    public function getCategories(): array
+    {
+        $sql = '
+            SELECT c.* 
+            FROM categories c
+            INNER JOIN product_category pc ON c.id = pc.category_id
+            WHERE pc.product_id = ?
+        ';
+        
+        $data = static::db()->select($sql, [$this->id]);
+        $categories = [];
+        foreach ($data as $row) {
+            $categories[] = new Category($row);
+        }
+        return $categories;
+    }
+}
+```
+
+## Model Traits
+
+FacturaScripts provides useful traits:
+
+### ModelTrait
+
+Provides query methods (all, find, create, etc.):
+
+```php
+use FacturaScripts\Core\Template\ModelTrait;
+
+class MyModel extends ModelClass
+{
+    use ModelTrait;
+}
+```
+
+### Example: TaxRelationTrait
+
+For models with tax information:
+
+```php
+use FacturaScripts\Core\Model\Base\TaxRelationTrait;
+
+class Product extends ModelClass
+{
+    use ModelTrait;
+    use TaxRelationTrait;
+    
+    public $codimpuesto;  // Tax code
+    public $iva;          // Tax percentage
+    
+    // TaxRelationTrait provides tax-related methods
+}
+```
+
+## Caching
+
+Models automatically cache field definitions. Clear cache when needed:
+
+```php
+public function install(): string
+{
+    // Clear model cache after structure changes
+    $this->clearCache();
+    return '';
+}
+
+// Clear specific model cache
+MyModel::clearCache();
+
+// Or use the cache system directly
+use FacturaScripts\Core\Cache;
+Cache::clear();
+```
+
+## Complete Example
+
+Here's a complete model with validation, relationships, and custom methods:
+
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Model;
+
+use FacturaScripts\Core\Template\ModelClass;
+use FacturaScripts\Core\Template\ModelTrait;
+use FacturaScripts\Core\Tools;
+
+class Product extends ModelClass
+{
+    use ModelTrait;
+
+    public $id;
+    public $reference;
+    public $name;
+    public $description;
+    public $price;
+    public $stock;
+    public $active;
+    public $created_at;
+    public $updated_at;
+
+    public static function primaryColumn(): string
+    {
+        return 'id';
+    }
+
+    public static function tableName(): string
+    {
+        return 'products';
+    }
+
+    public function clear()
+    {
+        parent::clear();
+        $this->active = true;
+        $this->stock = 0;
+        $this->price = 0.0;
+        $this->created_at = date('Y-m-d H:i:s');
+    }
+
+    public function test(): bool
+    {
+        $this->reference = trim($this->reference);
+        $this->name = trim($this->name);
+        
+        if (empty($this->reference)) {
+            Tools::log()->warning('product-reference-required');
+            return false;
+        }
+        
+        if (empty($this->name)) {
+            Tools::log()->warning('product-name-required');
+            return false;
+        }
+        
+        if ($this->price < 0) {
+            Tools::log()->warning('product-price-negative');
+            return false;
+        }
+        
+        // Check for duplicate reference
+        if ($this->checkDuplicate()) {
+            Tools::log()->warning('product-reference-duplicate');
+            return false;
+        }
+        
+        return parent::test();
+    }
+
+    public function save(): bool
+    {
+        $this->updated_at = date('Y-m-d H:i:s');
+        return parent::save();
+    }
+
+    public function install(): string
+    {
+        return 'CREATE INDEX idx_products_reference ON products(reference);';
+    }
+
+    /**
+     * Check if reference is already used
+     */
+    private function checkDuplicate(): bool
+    {
+        $duplicate = static::findWhere([
+            ['reference', '=', $this->reference],
+            ['id', '!=', $this->id]
+        ]);
+        return $duplicate !== null;
+    }
+
+    /**
+     * Check if product is in stock
+     */
+    public function inStock(): bool
+    {
+        return $this->stock > 0;
+    }
+
+    /**
+     * Reduce stock by quantity
+     */
+    public function reduceStock(float $quantity): bool
+    {
+        if ($this->stock < $quantity) {
+            Tools::log()->warning('insufficient-stock');
+            return false;
+        }
+        
+        $this->stock -= $quantity;
+        return $this->save();
+    }
+
+    /**
+     * Get formatted price with currency
+     */
+    public function formattedPrice(): string
+    {
+        return Tools::money($this->price);
+    }
+}
+```
+
+## Database Types
+
+Common column types in Table/ XML files:
+
+| Type | Description | Example |
+|------|-------------|--------|
+| `serial` | Auto-incrementing integer | Primary keys |
+| `integer` | Integer number | Quantities, IDs |
+| `double precision` | Floating-point | Prices, decimals |
+| `character varying(n)` | Variable-length string | Names, codes |
+| `text` | Unlimited text | Descriptions |
+| `boolean` | True/false | Active status |
+| `date` | Date only | Birth date |
+| `timestamp` | Date and time | Created at |
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Views" icon="eye" href="/dev/plugins/views">
+    Create user interfaces for your models
+  </Card>
+  
+  <Card title="Controllers" icon="code" href="/dev/plugins/controllers">
+    Build controllers to handle requests
+  </Card>
+</CardGroup>

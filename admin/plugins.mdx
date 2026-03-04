@@ -1,0 +1,618 @@
+---
+title: Plugin Management
+description: Install, configure, and manage FacturaScripts plugins
+icon: puzzle
+---
+
+## Overview
+
+FacturaScripts has a powerful plugin system that allows you to extend functionality without modifying core files. Plugins can add new features, modify existing behavior, and integrate with third-party services.
+
+## Plugin Architecture
+
+The plugin system is managed by two main classes:
+
+- **Plugins** (`Core/Plugins.php`): Main plugin management class
+- **Plugin** (`Core/Internal/Plugin.php`): Individual plugin representation
+
+### Plugin Directory Structure
+
+Plugins are stored in the `Plugins/` folder, each in its own directory:
+
+```
+Plugins/
+├── MyPlugin/
+│   ├── facturascripts.ini
+│   ├── Init.php
+│   ├── Controller/
+│   ├── Model/
+│   ├── Extension/
+│   └── View/
+```
+
+## Plugin Configuration File
+
+Each plugin must have a `facturascripts.ini` file in its root directory:
+
+```ini
+name = 'MyPlugin'
+description = 'Description of my plugin'
+version = 1.0
+min_version = 2025.0
+min_php = 8.0
+require = 'OtherPlugin,AnotherPlugin'
+require_php = 'curl,json'
+```
+
+### Configuration Properties
+
+- **name**: Plugin name (must match folder name)
+- **description**: Brief description of functionality
+- **version**: Plugin version number
+- **min_version**: Minimum FacturaScripts version required
+- **min_php**: Minimum PHP version required (default: 8.0)
+- **require**: Comma-separated list of required plugins
+- **require_php**: Comma-separated list of required PHP extensions
+
+## Plugin Properties
+
+The Plugin class (`Core/Internal/Plugin.php`) includes:
+
+### Status Properties
+
+- **enabled**: Whether plugin is active (default: false)
+- **installed**: Whether plugin exists in filesystem
+- **hidden**: Whether plugin is hidden from UI
+- **compatible**: Whether plugin meets version requirements
+
+### Metadata Properties
+
+- **name**: Plugin name
+- **description**: Plugin description
+- **version**: Current plugin version
+- **folder**: Folder name (usually same as name)
+- **order**: Load order for enabled plugins
+
+### Configuration Properties
+
+- **min_version**: Minimum FacturaScripts version
+- **min_php**: Minimum PHP version
+- **require**: Array of required plugin names
+- **require_php**: Array of required PHP extensions
+
+### State Properties
+
+- **post_enable**: Flag to run post-enable hooks
+- **post_disable**: Flag to run post-disable hooks
+
+## Installing Plugins
+
+### Add Plugin from ZIP
+
+Use the `Plugins::add()` method to install a plugin from a ZIP file:
+
+```php
+Plugins::add('/path/to/plugin.zip', 'plugin.zip', $force = false);
+```
+
+Installation process (`Plugins.php:37`):
+
+1. Check if plugin installation is disabled
+2. Validate ZIP file structure
+3. Read `facturascripts.ini` from ZIP
+4. Check compatibility
+5. Delete previous version if exists
+6. Extract ZIP to `Plugins/` folder
+7. Rename folder if necessary
+8. Add to plugins list
+9. Deploy if plugin was already enabled
+
+### Installation Validation
+
+The system performs several security checks (`Plugins.php:425`):
+
+```php
+// Check ZIP file integrity
+$result = $zipFile->open($zipPath, ZipArchive::CHECKCONS);
+
+// Verify facturascripts.ini exists
+$zipIndex = $zipFile->locateName('facturascripts.ini', ZipArchive::FL_NODIR);
+
+// Check for path traversal attacks (Zip Slip)
+if (false !== strpos($name, '..')) {
+    Tools::log()->error('zip-error-wrong-structure');
+    return false;
+}
+
+// Verify single root folder
+if (count($folders) != 1) {
+    Tools::log()->error('zip-error-wrong-structure');
+    return false;
+}
+```
+
+### Plugin Installation Disabled
+
+You can disable plugin installation in `config.php` (`Plugins.php:39`):
+
+```php
+if (Tools::config('disable_add_plugins', false) && false === $force) {
+    Tools::log()->warning('plugin-installation-disabled');
+    return false;
+}
+```
+
+## Enabling Plugins
+
+### Enable a Plugin
+
+Use the `Plugins::enable()` method:
+
+```php
+Plugins::enable('MyPlugin');
+```
+
+Enable process (`Plugins.php:158`):
+
+1. Check if plugin exists and is not already enabled
+2. Verify folder name matches plugin name
+3. Check dependencies are met
+4. Add to enabled list with incremental order
+5. Set `post_enable` flag
+6. Save plugins.json
+7. Deploy changes
+8. Initialize controllers
+
+### Enable Validation
+
+Folder name must match plugin name (`Plugins.php:168`):
+
+```php
+if ($plugin->folder !== $plugin->name) {
+    Tools::log()->error('plugin-folder-not-equal-name', [
+        '%folderName%' => $plugin->folder,
+        '%pluginName%' => $pluginName
+    ]);
+    return false;
+}
+```
+
+### Dependency Checking
+
+Dependencies are validated before enabling (`Plugin.php:118`):
+
+```php
+public function dependenciesOk(array $enabledPlugins, bool $showErrors = false): bool
+{
+    // Check compatibility
+    if (!$this->compatible) {
+        return false;
+    }
+
+    // Check required plugins are enabled
+    foreach ($this->require as $require) {
+        if (in_array($require, $enabledPlugins)) {
+            continue;
+        }
+        if ($showErrors) {
+            Tools::log()->warning('plugin-needed', ['%pluginName%' => $require]);
+        }
+        return false;
+    }
+
+    // Check required PHP extensions are loaded
+    foreach ($this->require_php as $require) {
+        if (extension_loaded($require)) {
+            continue;
+        }
+        if ($showErrors) {
+            Tools::log()->warning('php-extension-needed', ['%extension%' => $require]);
+        }
+        return false;
+    }
+
+    return true;
+}
+```
+
+## Disabling Plugins
+
+### Disable a Plugin
+
+Use the `Plugins::disable()` method:
+
+```php
+Plugins::disable('MyPlugin', $runPostDisable = true);
+```
+
+Disable process (`Plugins.php:129`):
+
+1. Check if plugin exists and is enabled
+2. Set `enabled = false`
+3. Set `post_disable` flag if requested
+4. Clear `post_enable` flag
+5. Save plugins.json
+6. Deploy changes
+7. Initialize controllers
+
+## Removing Plugins
+
+### Remove a Plugin
+
+Use the `Plugins::remove()` method:
+
+```php
+Plugins::remove('MyPlugin');
+```
+
+Removal restrictions (`Plugins.php:310`):
+
+1. Plugin must exist
+2. Plugin must be disabled
+3. Plugin removal must not be disabled in config
+
+```php
+if (Tools::config('disable_rm_plugins', false)) {
+    return false;
+}
+
+if (null === $plugin || $plugin->enabled) {
+    return false;
+}
+```
+
+Removal process:
+
+1. Delete plugin directory recursively
+2. Remove from plugins list
+3. Save plugins.json
+
+## Plugin Deployment
+
+### Deploy Process
+
+The `Plugins::deploy()` method handles plugin deployment (`Plugins.php:113`):
+
+```php
+public static function deploy(bool $clean = true, bool $initControllers = false): void
+{
+    PluginsDeploy::run(self::enabled(), $clean);
+    Kernel::rebuildRoutes();
+    Kernel::saveRoutes();
+    DbUpdater::rebuild();
+    Tools::folderDelete(Tools::folder('MyFiles', 'Cache'));
+
+    if ($initControllers) {
+        PluginsDeploy::initControllers();
+    }
+}
+```
+
+Deployment steps:
+
+1. Run plugin deployment (copy files, merge assets)
+2. Rebuild application routes
+3. Save updated routes
+4. Rebuild database schema
+5. Clear cache
+6. Initialize controllers (if requested)
+
+## Plugin Initialization
+
+### Init.php File
+
+Plugins can include an `Init.php` file in their root directory:
+
+```php
+namespace FacturaScripts\Plugins\MyPlugin;
+
+use FacturaScripts\Core\Base\InitClass;
+
+class Init extends InitClass
+{
+    public function init()
+    {
+        // Called on every request when plugin is enabled
+    }
+
+    public function update()
+    {
+        // Called once after plugin is enabled or updated
+    }
+
+    public function uninstall()
+    {
+        // Called once when plugin is disabled
+    }
+}
+```
+
+### Init Execution
+
+The `Plugin::init()` method (`Plugin.php:227`) manages initialization:
+
+```php
+public function init(): bool
+{
+    // Skip if disabled and no post_disable flag
+    if ($this->disabled() && !$this->post_disable) {
+        return false;
+    }
+
+    // Check if Init class exists
+    $className = 'FacturaScripts\\Plugins\\' . $this->name . '\\Init';
+    if (!class_exists($className)) {
+        $this->post_disable = false;
+        $this->post_enable = false;
+        return false;
+    }
+
+    // Execute init methods with locking
+    $init = new $className();
+    if ($this->enabled && $this->post_enable && Kernel::lock($updateLockName)) {
+        $init->update();
+        Kernel::unlock($updateLockName);
+    }
+    if ($this->disabled() && $this->post_disable && Kernel::lock($uninstallLockName)) {
+        $init->uninstall();
+        Kernel::unlock($uninstallLockName);
+    }
+    if ($this->enabled) {
+        $init->init();
+    }
+
+    // Clear flags
+    $this->post_disable = false;
+    $this->post_enable = false;
+
+    return $done;
+}
+```
+
+### Global Init Call
+
+All plugins are initialized via `Plugins::init()` (`Plugins.php:235`):
+
+```php
+public static function init(): void
+{
+    Kernel::startTimer('plugins::init');
+    $save = false;
+
+    // Execute init for all enabled plugins
+    foreach (self::list(true, 'order') as $plugin) {
+        if ($plugin->init()) {
+            $save = true;
+        }
+    }
+
+    if ($save) {
+        self::save();
+    }
+
+    Kernel::stopTimer('plugins::init');
+}
+```
+
+## Plugin Compatibility
+
+### Compatibility Checking
+
+The `Plugin::checkCompatibility()` method validates requirements (`Plugin.php:267`):
+
+```php
+private function checkCompatibility(): void
+{
+    // Check PHP version
+    if (version_compare(PHP_VERSION, $this->min_php, '<')) {
+        $this->compatible = false;
+        $this->compatibilityDescription = Tools::trans('plugin-phpversion-error', [
+            '%pluginName%' => $this->name,
+            '%php%' => $this->min_php
+        ]);
+        return;
+    }
+
+    // Check FacturaScripts version
+    if (Kernel::version() < $this->min_version) {
+        $this->compatible = false;
+        $this->compatibilityDescription = Tools::trans('plugin-needs-fs-version', [
+            '%pluginName%' => $this->name,
+            '%minVersion%' => $this->min_version,
+            '%version%' => Kernel::version()
+        ]);
+        return;
+    }
+
+    // Reject plugins for FacturaScripts < 2025
+    if ($this->min_version < 2025) {
+        $this->compatible = false;
+        $this->compatibilityDescription = Tools::trans('plugin-not-compatible', [
+            '%pluginName%' => $this->name,
+            '%version%' => Kernel::version()
+        ]);
+        return;
+    }
+
+    $this->compatible = true;
+}
+```
+
+## Plugin Loading
+
+### Load Order
+
+Enabled plugins are loaded in order of their `order` property (`Plugins.php:202`):
+
+```php
+public static function enabled(): array
+{
+    $enabled = [];
+
+    self::load();
+    foreach (self::$plugins as $plugin) {
+        if ($plugin->enabled) {
+            $enabled[$plugin->name] = $plugin->order;
+        }
+    }
+
+    // Sort by order
+    asort($enabled);
+    return array_keys($enabled);
+}
+```
+
+### Plugin List
+
+Get all plugins with optional filtering (`Plugins.php:265`):
+
+```php
+public static function list(bool $hidden = false, string $orderBy = 'name'): array
+{
+    $list = [];
+
+    self::load();
+    foreach (self::$plugins as $plugin) {
+        if ($hidden || false === $plugin->hidden) {
+            $list[] = $plugin;
+        }
+    }
+
+    // Sort by name or order
+    switch ($orderBy) {
+        case 'order':
+            usort($list, function ($a, $b) {
+                return $a->order - $b->order;
+            });
+            break;
+
+        default:
+            usort($list, function ($a, $b) {
+                return strcasecmp($a->name, $b->name);
+            });
+            break;
+    }
+
+    return $list;
+}
+```
+
+## Plugin Storage
+
+Plugin state is stored in `MyFiles/plugins.json` (`Plugins.php:32`):
+
+```php
+const FILE_NAME = 'plugins.json';
+```
+
+### Save Plugins
+
+The `Plugins::save()` method persists plugin state (`Plugins.php:405`):
+
+```php
+private static function save(): void
+{
+    // Verify all enabled plugins meet dependencies
+    while (true) {
+        foreach (self::$plugins as $key => $plugin) {
+            if ($plugin->enabled && false === $plugin->dependenciesOk(self::enabled())) {
+                self::$plugins[$key]->enabled = false;
+                continue 2;
+            }
+        }
+        break;
+    }
+
+    // Create MyFiles folder if needed
+    Tools::folderCheckOrCreate(Tools::folder('MyFiles'));
+
+    // Save as JSON
+    $json = json_encode(self::$plugins, JSON_PRETTY_PRINT);
+    file_put_contents(Tools::folder('MyFiles', self::FILE_NAME), $json);
+}
+```
+
+### Load Plugins
+
+Plugins are loaded from both the JSON file and the filesystem (`Plugins.php:301`):
+
+```php
+public static function load(): void
+{
+    if (null === self::$plugins) {
+        self::$plugins = [];
+        self::loadFromFile();   // Load from plugins.json
+        self::loadFromFolder(); // Scan Plugins/ folder
+    }
+}
+```
+
+## Checking Plugin Status
+
+### Check if Enabled
+
+```php
+if (Plugins::isEnabled('MyPlugin')) {
+    // Plugin is enabled
+}
+```
+
+### Check if Installed
+
+```php
+if (Plugins::isInstalled('MyPlugin')) {
+    // Plugin files exist
+}
+```
+
+### Get Plugin Object
+
+```php
+$plugin = Plugins::get('MyPlugin');
+if ($plugin) {
+    echo $plugin->description;
+    echo $plugin->version;
+}
+```
+
+## Hidden Plugins
+
+Plugins can be hidden from the UI by adding them to `config.php` (`Plugin.php:303`):
+
+```php
+private function hidden(): bool
+{
+    $hidden_plugins = Tools::config('hidden_plugins', '');
+    if ($hidden_plugins !== '') {
+        return in_array($this->name, explode(',', $hidden_plugins));
+    }
+
+    return false;
+}
+```
+
+In `config.php`:
+```php
+define('FS_HIDDEN_PLUGINS', 'InternalPlugin,SystemPlugin');
+```
+
+## Best Practices
+
+1. **Complete facturascripts.ini**: Always include all metadata fields
+2. **Version Compatibility**: Set realistic `min_version` and `min_php` requirements
+3. **Declare Dependencies**: List all required plugins in `require` field
+4. **Proper Init Hooks**: Use `update()` for one-time setup, `init()` for every request
+5. **Clean Uninstall**: Implement `uninstall()` to clean up database changes
+6. **Folder Naming**: Plugin folder must match the name in facturascripts.ini
+7. **Test Compatibility**: Test on minimum required versions before release
+8. **Semantic Versioning**: Use proper version numbering (major.minor format)
+9. **Security First**: Validate and sanitize all external data
+10. **Document Changes**: Include changelog and upgrade instructions
+
+## Related Files
+
+- Plugins Manager: `/Core/Plugins.php`
+- Plugin Class: `/Core/Internal/Plugin.php`
+- Plugin Deployment: `/Core/Internal/PluginsDeploy.php`
+- Plugin List: `/MyFiles/plugins.json`
+- Plugins Directory: `/Plugins/`

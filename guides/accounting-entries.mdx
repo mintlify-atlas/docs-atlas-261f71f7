@@ -1,0 +1,525 @@
+---
+title: Creating Accounting Entries
+description: Step-by-step guide to creating and managing accounting entries (journal entries) in FacturaScripts
+---
+
+This guide covers everything you need to know about creating and managing accounting entries (Asientos) in FacturaScripts.
+
+## Understanding Accounting Entries
+
+FacturaScripts uses the **Asiento** model (EditAsiento.php) for accounting entries, also known as journal entries. Each entry consists of:
+
+- **Header**: Entry number, date, concept, and document reference
+- **Lines (Partidas)**: Individual debit and credit lines
+- **Balance**: Must be zero (debits = credits)
+
+Accounting entries are the foundation of double-entry bookkeeping in FacturaScripts.
+
+## Creating a Manual Accounting Entry
+
+<Steps>
+  <Step title="Navigate to Accounting">
+    Go to **Accounting** menu and select **Accounting Entries** (EditAsiento.php:86).
+  </Step>
+  
+  <Step title="Create New Entry">
+    Click the **New** button to open the accounting entry form. The system displays:
+    - Header section for entry details (EditAsiento.php:104)
+    - Lines section for debit/credit entries (EditAsiento.php:105)
+    - Footer with balance summary (EditAsiento.php:106)
+    - Modal for subaccount search (EditAsiento.php:107)
+  </Step>
+  
+  <Step title="Configure Entry Header">
+    Enter the entry header information (EditAsiento.php:120):
+    - **Date (Fecha)**: Transaction date
+    - **Concept (Concepto)**: Description of the transaction
+    - **Document (Documento)**: Reference document number (optional)
+    - **Exercise (Ejercicio)**: Accounting period/year
+    - **Channel (Canal)**: Entry channel or source
+  </Step>
+  
+  <Step title="Add Debit Line">
+    Click **New Line** to add the first line (EditAsiento.php:214):
+    1. Enter or search for the subaccount code (EditAsiento.php:208)
+    2. The system searches the chart of accounts (EditAsiento.php:255)
+    3. Enter the debit amount
+    4. Add line description if needed
+    
+    <Tip>Use the autocomplete feature to search subaccounts by code or description (EditAsiento.php:159).</Tip>
+  </Step>
+  
+  <Step title="Add Credit Line">
+    Add the corresponding credit line:
+    1. Click **New Line** again (EditAsiento.php:214)
+    2. Select the credit subaccount
+    3. Enter the credit amount
+    4. Verify the balance shows zero
+    
+    <Note>The system recalculates the balance after each line (EditAsiento.php:103, EditAsiento.php:331).</Note>
+  </Step>
+  
+  <Step title="Verify Balance">
+    Check the footer section (EditAsiento.php:106):
+    - **Total Debit**: Sum of all debit amounts
+    - **Total Credit**: Sum of all credit amounts
+    - **Unbalanced**: Difference (must be 0)
+    
+    <Warning>You cannot save an unbalanced entry (EditAsiento.php:307).</Warning>
+  </Step>
+  
+  <Step title="Save Entry">
+    Click **Save** to record the entry (EditAsiento.php:219, EditAsiento.php:353):
+    1. System validates the balance
+    2. Saves the header
+    3. Saves all lines (EditAsiento.php:370)
+    4. Removes any deleted lines (EditAsiento.php:378)
+    5. Redirects to the saved entry (EditAsiento.php:386)
+  </Step>
+</Steps>
+
+## Understanding the Entry Interface
+
+The accounting entry form uses AJAX for a smooth user experience:
+
+<Tabs>
+  <Tab title="Header Section">
+    The header (EditAsiento.php:104) contains:
+    - Entry metadata
+    - Date and period selection
+    - Document reference
+    - Entry status
+    
+    Changes update dynamically using AccountingHeaderHTML (EditAsiento.php:120).
+  </Tab>
+  
+  <Tab title="Lines Section">
+    The lines area (EditAsiento.php:105) shows:
+    - All entry lines in a table format
+    - Debit and credit columns
+    - Subaccount autocomplete
+    - Line-level descriptions
+    - Running totals
+    
+    Rendered by AccountingLineHTML (EditAsiento.php:120).
+  </Tab>
+  
+  <Tab title="Footer Section">
+    The footer (EditAsiento.php:106) displays:
+    - Total debits
+    - Total credits
+    - Balance/unbalanced amount
+    - Save and action buttons
+    
+    Updates via AccountingFooterHTML (EditAsiento.php:121).
+  </Tab>
+  
+  <Tab title="Search Modal">
+    The subaccount search modal (EditAsiento.php:107) provides:
+    - Advanced subaccount search
+    - Chart of accounts navigation
+    - Quick selection interface
+    - Recent accounts list
+    
+    Managed by AccountingModalHTML (EditAsiento.php:124, EditAsiento.php:265).
+  </Tab>
+</Tabs>
+
+## Working with Subaccounts
+
+<Steps>
+  <Step title="Search Subaccounts">
+    To find a subaccount:
+    1. Start typing in the subaccount field
+    2. Autocomplete shows matching accounts (EditAsiento.php:159)
+    3. Select from the list
+    
+    Or click the search icon to open the full modal (EditAsiento.php:208).
+  </Step>
+  
+  <Step title="Browse Chart of Accounts">
+    In the search modal:
+    1. Navigate the account hierarchy
+    2. Filter by account type
+    3. Search by code or description
+    4. View account balances
+  </Step>
+  
+  <Step title="Select Account">
+    Click on a subaccount to:
+    - Populate the line with the account
+    - Close the modal
+    - Focus on the amount field
+  </Step>
+</Steps>
+
+## Adding and Removing Lines
+
+<Tabs>
+  <Tab title="Add Line">
+    To add a new line (EditAsiento.php:214):
+    1. Click **New Line** button
+    2. System adds an empty line
+    3. Interface scrolls to the new line
+    4. Focus moves to the subaccount field
+    
+    The system recalculates totals immediately (EditAsiento.php:331).
+  </Tab>
+  
+  <Tab title="Remove Line">
+    To delete a line (EditAsiento.php:214):
+    1. Click the delete icon on the line
+    2. System marks line for deletion (EditAsiento.php:380)
+    3. Line is hidden from view
+    4. Balance recalculates
+    5. Line is permanently deleted on save (EditAsiento.php:378)
+  </Tab>
+  
+  <Tab title="Recalculate">
+    The system automatically recalculates (EditAsiento.php:216):
+    - After adding/removing lines
+    - When amounts change
+    - When subaccounts are selected
+    - On form submission
+  </Tab>
+</Tabs>
+
+## Automatic Accounting Entries
+
+FacturaScripts can generate accounting entries automatically from documents:
+
+<Steps>
+  <Step title="From Invoices">
+    Customer and supplier invoices can generate entries automatically:
+    1. Open the invoice
+    2. Click **Accounting Entries** tab
+    3. Click **Generate Accounting Entry**
+    4. System creates entries for:
+       - Accounts receivable/payable
+       - Revenue/expense accounts
+       - Tax accounts (VAT, IRPF)
+  </Step>
+  
+  <Step title="From Other Documents">
+    Other documents that can generate entries:
+    - Bank transactions
+    - Payment receipts
+    - Salary payments
+    - Depreciation entries
+    
+    Each uses appropriate account mappings.
+  </Step>
+  
+  <Step title="Review Generated Entry">
+    After automatic generation:
+    1. System opens the new entry
+    2. Review all lines
+    3. Verify amounts and accounts
+    4. Make adjustments if needed
+    5. Entry is already saved
+  </Step>
+</Steps>
+
+## Locking and Unlocking Entries
+
+Control whether entries can be edited:
+
+<Steps>
+  <Step title="Lock Entry">
+    To prevent editing (EditAsiento.php:211, EditAsiento.php:397):
+    1. Open the entry
+    2. Click **Lock** button
+    3. Confirm the action
+    4. Entry becomes read-only
+    
+    Locked entries ensure accounting integrity.
+  </Step>
+  
+  <Step title="Unlock Entry">
+    To allow editing again (EditAsiento.php:225, EditAsiento.php:397):
+    1. Open the locked entry
+    2. Click **Unlock** button
+    3. Confirm the action (requires permission)
+    4. Entry becomes editable (EditAsiento.php:408)
+    
+    <Warning>Only unlock entries if absolutely necessary for corrections.</Warning>
+  </Step>
+</Steps>
+
+## Copying Entries
+
+To create a similar entry:
+
+<Steps>
+  <Step title="Open Source Entry">
+    Navigate to the entry you want to copy.
+  </Step>
+  
+  <Step title="Click Copy">
+    Click the **Copy** button (EditAsiento.php:314).
+  </Step>
+  
+  <Step title="Modify New Entry">
+    System creates a new entry with:
+    - Same concept
+    - Same subaccounts and amounts
+    - New entry number
+    - Current date
+    
+    Modify as needed and save.
+  </Step>
+</Steps>
+
+## Deleting Entries
+
+<Steps>
+  <Step title="Verify Deletion Allowed">
+    Entries can only be deleted if:
+    - Entry is unlocked (editable)
+    - User has delete permission (EditAsiento.php:170)
+    - Entry is not referenced by documents
+  </Step>
+  
+  <Step title="Delete Entry">
+    To delete an entry (EditAsiento.php:202, EditAsiento.php:167):
+    1. Open the entry
+    2. Click **Delete** button
+    3. Confirm the deletion
+    4. System validates and removes the entry (EditAsiento.php:178)
+    5. Redirects to entry list (EditAsiento.php:182)
+  </Step>
+</Steps>
+
+<Warning>
+Deleting accounting entries affects your financial reports and should be done carefully. Consider correcting entries instead of deleting them.
+</Warning>
+
+## Exporting and Printing
+
+Generate reports and exports:
+
+<Steps>
+  <Step title="Open Entry">
+    Navigate to the entry you want to export.
+  </Step>
+  
+  <Step title="Access Export">
+    Click the **Print** or **Export** button (EditAsiento.php:153, EditAsiento.php:232).
+  </Step>
+  
+  <Step title="Choose Format">
+    Select export format (EditAsiento.php:240):
+    - PDF for printing
+    - Excel/CSV for analysis
+    - Custom formats if configured
+  </Step>
+  
+  <Step title="Configure Options">
+    Set export options:
+    - Language preference (EditAsiento.php:244)
+    - Template format (EditAsiento.php:243)
+    - Additional data to include
+  </Step>
+</Steps>
+
+## Attaching Documents
+
+Link supporting documents to entries:
+
+<Steps>
+  <Step title="Access Documents Tab">
+    Open the entry and click the **Documents** tab (EditAsiento.php:135).
+  </Step>
+  
+  <Step title="Add Files">
+    Upload supporting documents (EditAsiento.php:196):
+    - Invoices
+    - Receipts
+    - Bank statements
+    - Contracts
+    - Any relevant documentation
+  </Step>
+  
+  <Step title="Manage Files">
+    File management options (EditAsiento.php:199, EditAsiento.php:222):
+    - View attached files
+    - Download documents
+    - Edit file descriptions
+    - Remove attachments
+    - Link to existing files (EditAsiento.php:222)
+  </Step>
+</Steps>
+
+## Viewing Audit Log
+
+Track changes to accounting entries:
+
+<Steps>
+  <Step title="Open Log Tab">
+    In the entry view, click the **Audit Log** tab (EditAsiento.php:136).
+  </Step>
+  
+  <Step title="Review Changes">
+    View entry history (EditAsiento.php:289):
+    - Who created the entry
+    - When it was modified
+    - What changes were made
+    - Lock/unlock events
+  </Step>
+</Steps>
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Descriptive Concepts" icon="file-signature">
+    Always write clear, descriptive concepts:
+    - Include document references
+    - Mention parties involved
+    - State the transaction purpose
+    - Use consistent terminology
+    
+    Good: "Invoice #2025-0042 - Customer ABC Ltd"
+    Bad: "Invoice"
+  </Accordion>
+  
+  <Accordion title="Double-Check Subaccounts" icon="magnifying-glass">
+    Before saving:
+    - Verify correct subaccount codes
+    - Check debit vs. credit placement
+    - Confirm amounts match documents
+    - Review tax account assignments
+  </Accordion>
+  
+  <Accordion title="Lock Important Entries" icon="lock">
+    Lock entries after verification:
+    - Month-end entries
+    - Tax-related entries
+    - Audit-critical entries
+    - Year-end closing entries
+  </Accordion>
+  
+  <Accordion title="Attach Supporting Documents" icon="paperclip">
+    Always attach:
+    - Source invoices or receipts
+    - Bank statements
+    - Payment confirmations
+    - Approval documentation
+    
+    This creates a complete audit trail.
+  </Accordion>
+  
+  <Accordion title="Regular Reconciliation" icon="check-double">
+    Reconcile accounts regularly:
+    - Bank accounts daily/weekly
+    - Customer accounts monthly
+    - Supplier accounts monthly
+    - Tax accounts quarterly
+  </Accordion>
+</AccordionGroup>
+
+## Common Entry Types
+
+<CardGroup cols={2}>
+  <Card title="Sales Entry" icon="cash-register">
+    **Debit**: Accounts Receivable
+    **Credit**: Sales Revenue
+    **Credit**: VAT Payable
+    
+    Records customer sales with taxes.
+  </Card>
+  
+  <Card title="Purchase Entry" icon="shopping-cart">
+    **Debit**: Expenses/Inventory
+    **Debit**: VAT Receivable
+    **Credit**: Accounts Payable
+    
+    Records supplier purchases.
+  </Card>
+  
+  <Card title="Payment Entry" icon="money-bill-transfer">
+    **Debit**: Accounts Payable
+    **Credit**: Bank Account
+    
+    Records payment to suppliers.
+  </Card>
+  
+  <Card title="Receipt Entry" icon="hand-holding-dollar">
+    **Debit**: Bank Account
+    **Credit**: Accounts Receivable
+    
+    Records customer payments received.
+  </Card>
+  
+  <Card title="Adjustment Entry" icon="sliders">
+    Various accounts for:
+    - Error corrections
+    - Accruals
+    - Depreciation
+    - Provisions
+  </Card>
+  
+  <Card title="Closing Entry" icon="door-closed">
+    **Debit**: Revenue Accounts
+    **Credit**: Income Summary
+    
+    Year-end closing entries.
+  </Card>
+</CardGroup>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Entry Won't Save" icon="floppy-disk-circle-xmark">
+    If you can't save an entry:
+    1. Check if the entry is balanced (EditAsiento.php:307)
+    2. Verify all subaccounts are valid
+    3. Ensure you have save permissions
+    4. Check for validation errors in the interface
+    
+    The system shows specific error messages (EditAsiento.php:391).
+  </Accordion>
+  
+  <Accordion title="Subaccount Not Found" icon="magnifying-glass-minus">
+    If autocomplete doesn't find an account:
+    1. Verify the account exists in your chart of accounts
+    2. Check the accounting exercise is correct
+    3. Ensure the account is active
+    4. Try searching by description instead of code
+  </Accordion>
+  
+  <Accordion title="Can't Delete Entry" icon="trash-can-slash">
+    If deletion fails:
+    1. Check if entry is locked (EditAsiento.php:408)
+    2. Verify you have delete permission (EditAsiento.php:170)
+    3. See if entry is referenced by documents
+    4. Contact your administrator if needed
+  </Accordion>
+  
+  <Accordion title="Balance Won't Zero" icon="scale-unbalanced">
+    If the entry won't balance:
+    1. Recalculate totals (EditAsiento.php:331)
+    2. Check for rounding errors
+    3. Verify all amounts are entered correctly
+    4. Ensure debits and credits are in correct columns
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Creating Invoices" icon="file-invoice-dollar" href="/guides/creating-invoices">
+    Learn how invoices generate accounting entries
+  </Card>
+  
+  <Card title="Accounting Features" icon="calculator" href="/features/accounting">
+    Explore advanced accounting features
+  </Card>
+  
+  <Card title="Reports" icon="chart-line" href="/features/reports">
+    Generate accounting reports and statements
+  </Card>
+  
+  <Card title="Configuration" icon="gear" href="/admin/configuration">
+    Configure accounting settings and chart of accounts
+  </Card>
+</CardGroup>

@@ -1,0 +1,396 @@
+---
+title: Accounting
+description: Double-entry accounting system with exercise management and financial reporting
+icon: calculator
+---
+
+FacturaScripts includes a complete double-entry accounting system that automatically generates accounting entries from business operations and provides comprehensive financial management.
+
+## Core Concepts
+
+<CardGroup cols={2}>
+  <Card title="Accounting Entries" icon="book">
+    Double-entry bookkeeping with balanced debit and credit
+  </Card>
+  <Card title="Chart of Accounts" icon="list">
+    Hierarchical account structure with accounts and subaccounts
+  </Card>
+  <Card title="Fiscal Exercises" icon="calendar">
+    Multi-year management with opening and closing entries
+  </Card>
+  <Card title="Tax Integration" icon="percent">
+    VAT regularization and tax reporting
+  </Card>
+</CardGroup>
+
+## Accounting Entries (Asientos)
+
+Accounting entries are the foundation of the double-entry bookkeeping system.
+
+### Entry Structure
+
+Located at `Core/Model/Asiento.php`:
+
+```php
+class Asiento extends ModelClass
+{
+    use ExerciseRelationTrait;
+    
+    // Operation types
+    const OPERATION_GENERAL = null;
+    const OPERATION_OPENING = 'A';      // Opening entry
+    const OPERATION_CLOSING = 'C';      // Closing entry
+    const OPERATION_REGULARIZATION = 'R'; // Tax regularization
+    
+    public $idasiento;         // Primary key
+    public $numero;            // Entry number (auto-generated)
+    public $fecha;             // Entry date
+    public $concepto;          // Description/concept
+    public $documento;         // Related document
+    public $importe;           // Total amount
+    public $debe;              // Total debit
+    public $haber;             // Total credit
+    public $editable;          // Can be edited
+    public $codejercicio;      // Fiscal exercise
+    public $operacion;         // Operation type
+    public $canal;             // Channel for statistics
+    public $iddiario;          // Journal ID
+}
+```
+
+### Key Features
+
+- **Auto-numbering**: Sequential numbering within each fiscal exercise
+- **Balance Validation**: Ensures debits equal credits
+- **Exercise Control**: Can only edit entries in open exercises
+- **Tax Regularization**: Prevents editing entries within closed tax periods
+- **Audit Trail**: All changes are logged
+
+### Entry Lines (Partidas)
+
+Each accounting entry consists of multiple lines:
+
+```php
+public function getLines(): array
+{
+    // Returns all lines (partidas) for this entry
+    // Each line has:
+    // - codsubcuenta: Subaccount code
+    // - concepto: Description
+    // - debe: Debit amount
+    // - haber: Credit amount
+    // - documento: Related document
+}
+```
+
+### Balance Checking
+
+```php
+public function isBalanced(): bool
+{
+    $debe = 0.0;
+    $haber = 0.0;
+    foreach ($this->getLines() as $line) {
+        $debe += $line->debe;
+        $haber += $line->haber;
+    }
+    return Tools::floatCmp($debe, $haber, $decimals, true);
+}
+```
+
+## Chart of Accounts (Plan Contable)
+
+The chart of accounts is organized hierarchically.
+
+### Accounts (Cuentas)
+
+First-level accounts define the main categories. Located at `Core/Model/Cuenta.php`:
+
+```php
+class Cuenta extends ModelClass
+{
+    use ExerciseRelationTrait;
+    
+    public $idcuenta;          // Primary key
+    public $codcuenta;         // Account code (numeric)
+    public $descripcion;       // Description
+    public $codejercicio;      // Fiscal exercise
+    public $parent_idcuenta;   // Parent account ID
+    public $parent_codcuenta;  // Parent account code
+    public $codcuentaesp;      // Special account type
+    public $debe;              // Total debits
+    public $haber;             // Total credits
+    public $saldo;             // Balance
+}
+```
+
+### Hierarchical Structure
+
+```php
+public function getParent(): Cuenta
+{
+    // Returns the parent account
+}
+
+public function getChildren(): array
+{
+    // Returns all child accounts
+}
+
+public function getSubcuentas(): array
+{
+    // Returns all subaccounts under this account
+}
+```
+
+### Subaccounts (Subcuentas)
+
+Subaccounts are the detail level where transactions are posted:
+
+- Automatically created for customers and suppliers
+- Used in accounting entry lines
+- Maintain running balances
+- Linked to their parent account
+
+### Special Accounts
+
+The system uses special account codes for automatic operations:
+
+- `CLIENT`: Customer accounts
+- `PROVEE`: Supplier accounts
+- `ACREED`: Creditor accounts
+- `IVARRP`: VAT receivable
+- `IVASOP`: VAT payable
+
+## Fiscal Exercises (Ejercicios)
+
+Fiscal exercises represent accounting periods.
+
+### Exercise Management
+
+- **Opening**: Start date and end date
+- **Closing**: Prevents modifications when closed
+- **Status Control**: Open/closed status
+- **Multi-company**: Separate exercises per company
+
+### Exercise States
+
+```php
+public function isOpened(): bool
+{
+    // Check if exercise accepts new entries
+}
+```
+
+When an exercise is closed:
+- No new entries can be created
+- Existing entries cannot be modified
+- Accounts cannot be added or changed
+
+## Entry Operations
+
+### Opening Entries
+
+```php
+const OPERATION_OPENING = 'A';
+```
+
+Created at the start of a fiscal year to transfer balances from the previous year.
+
+### Closing Entries
+
+```php
+const OPERATION_CLOSING = 'C';
+```
+
+Generated at year-end to close all accounts and calculate profit/loss.
+
+### Regularization Entries
+
+```php
+const OPERATION_REGULARIZATION = 'R';
+```
+
+Used for VAT regularization and tax adjustments.
+
+## Entry Renumbering
+
+The system can renumber all entries in an exercise:
+
+```php
+public function renumber(string $codejercicio): bool
+{
+    // Renumbers entries chronologically
+    // - Orders by date
+    // - Opening entries first
+    // - Sequential numbering
+}
+```
+
+<Warning>
+Renumbering should only be done on closed exercises or with extreme caution, as it changes entry numbers that may be referenced elsewhere.
+</Warning>
+
+## Editability Rules
+
+An entry is editable only when:
+
+1. The fiscal exercise is open
+2. The entry date is not within a closed tax regularization period
+3. The entry's `editable` flag is true
+
+```php
+public function editable(): bool
+{
+    $exercise = $this->getExercise();
+    if (false === $exercise->isOpened()) {
+        return false;
+    }
+    
+    // Check tax regularization periods
+    // Return true if all conditions met
+}
+```
+
+## Automatic Account Creation
+
+Subaccounts are automatically created for:
+
+### Customers
+
+```php
+// In Cliente model
+public function getSubcuenta(string $codejercicio, bool $crear): Subcuenta
+{
+    // Creates customer subaccount if needed
+    // Uses special account CLIENT
+}
+```
+
+### Suppliers
+
+```php
+// In Proveedor model
+public function getSubcuenta(string $codejercicio, bool $crear): Subcuenta
+{
+    // Creates supplier subaccount if needed
+    // Uses special account PROVEE or ACREED
+}
+```
+
+### Automatic Code Generation
+
+```php
+public function getFreeSubjectAccountCode($subject): string
+{
+    // Finds free subaccount code
+    // Uses subject ID and sequential numbers
+    // Ensures no duplicates
+}
+```
+
+## Integration with Business Operations
+
+The accounting system automatically creates entries for:
+
+- **Customer invoices**: Debit customer, credit sales and VAT
+- **Supplier invoices**: Debit purchases and VAT, credit supplier
+- **Payment receipts**: Debit bank, credit customer/supplier
+- **Stock movements**: Depending on configuration
+
+## Journals (Diarios)
+
+Journals categorize accounting entries:
+
+- General journal
+- Sales journal
+- Purchases journal
+- Bank journal
+- Custom journals
+
+Each entry can be assigned to a specific journal via `iddiario`.
+
+## Validation and Testing
+
+```php
+public function test(): bool
+{
+    // Validates:
+    // - Concept length (1-255 characters)
+    // - Document reference format
+    // - Exercise exists
+    // - Date within exercise period
+}
+```
+
+## Audit Logging
+
+```php
+public function save(): bool
+{
+    // After successful save
+    Tools::log(LogMessage::AUDIT_CHANNEL)->info('updated-model', [
+        'model-class' => $this->modelClassName(),
+        'model-code' => $this->id(),
+        'model-data' => $this->toArray()
+    ]);
+}
+```
+
+All accounting operations are logged to the audit channel for compliance and tracking.
+
+## Reports and Analysis
+
+The accounting system supports:
+
+- **Balance Sheet**: Assets and liabilities
+- **Profit & Loss**: Income and expenses
+- **Trial Balance**: All account balances
+- **Journal Reports**: Entry listings
+- **Tax Reports**: VAT declarations
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Exercise Planning">
+    Create fiscal exercises in advance. Ensure dates don't overlap and cover all business periods.
+  </Accordion>
+  
+  <Accordion title="Chart of Accounts">
+    Import a standard chart of accounts for your country. Customize as needed but maintain the hierarchical structure.
+  </Accordion>
+  
+  <Accordion title="Entry Validation">
+    Always ensure entries are balanced before saving. The system will prevent unbalanced entries.
+  </Accordion>
+  
+  <Accordion title="Regular Reconciliation">
+    Regularly reconcile bank accounts and customer/supplier balances against accounting records.
+  </Accordion>
+  
+  <Accordion title="Exercise Closing">
+    Only close exercises after generating all required reports and ensuring all entries are correct.
+  </Accordion>
+</AccordionGroup>
+
+## Related Models
+
+- `Core/Model/Asiento.php` - Accounting entries
+- `Core/Model/Partida.php` - Entry lines
+- `Core/Model/Cuenta.php` - Accounts
+- `Core/Model/Subcuenta.php` - Subaccounts
+- `Core/Model/Ejercicio.php` - Fiscal exercises
+- `Core/Model/CuentaEspecial.php` - Special account definitions
+- `Core/Model/Diario.php` - Journals
+- `Core/Model/RegularizacionImpuesto.php` - Tax regularization periods
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Invoicing" icon="file-invoice" href="/features/invoicing">
+    Learn how invoices generate accounting entries
+  </Card>
+  <Card title="Reports" icon="chart-line" href="/features/reports">
+    Generate financial reports and analytics
+  </Card>
+</CardGroup>

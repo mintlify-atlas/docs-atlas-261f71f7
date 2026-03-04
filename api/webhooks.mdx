@@ -1,0 +1,328 @@
+---
+title: Webhooks
+description: Understanding webhook support and event-driven integrations in FacturaScripts
+icon: bolt
+---
+
+## Overview
+
+While FacturaScripts provides a comprehensive REST API for pulling data and performing operations, webhook support for pushing events to external systems depends on your specific installation and plugins.
+
+<Info>
+FacturaScripts core does not include built-in webhook functionality. However, webhooks can be implemented through plugins or custom extensions.
+</Info>
+
+## Event System
+
+FacturaScripts has an extensive event system that can be leveraged to create webhook functionality:
+
+### Available Events
+
+The system fires events during various operations:
+
+- **Document Events**: Created, updated, deleted, approved
+- **Model Events**: Save, delete, load
+- **Payment Events**: Receipt paid, payment recorded
+- **User Events**: Login, logout, permission changes
+
+### Event Hooks
+
+Plugins can subscribe to events using the event hook system:
+
+```php
+use FacturaScripts\Core\Plugins;
+use FacturaScripts\Dinamic\Model\FacturaCliente;
+
+class MyPlugin extends Plugins
+{
+    public function init()
+    {
+        // Hook into invoice save event
+        $this->addHook('FacturaCliente::save', function(FacturaCliente $invoice) {
+            // Send webhook when invoice is saved
+            $this->sendWebhook('invoice.created', $invoice->toArray());
+        });
+    }
+    
+    private function sendWebhook($event, $data)
+    {
+        $webhookUrl = 'https://your-webhook-url.com/endpoint';
+        
+        $payload = json_encode([
+            'event' => $event,
+            'data' => $data,
+            'timestamp' => time()
+        ]);
+        
+        $ch = curl_init($webhookUrl);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_exec($ch);
+        curl_close($ch);
+    }
+}
+```
+
+## Implementing Webhooks
+
+If you need webhook functionality, you have several options:
+
+### Option 1: Custom Plugin
+
+Create a custom plugin that:
+
+1. Registers webhook URLs in the database
+2. Hooks into relevant FacturaScripts events
+3. Sends HTTP POST requests to registered webhook URLs
+4. Handles retries and error logging
+
+### Option 2: Polling with API
+
+Use the REST API to periodically check for changes:
+
+```javascript
+// Poll for new invoices every 5 minutes
+setInterval(async () => {
+  const response = await fetch(
+    'https://example.com/api/3/facturacliente?sort[fecha]=DESC&limit=10',
+    {
+      headers: {
+        'X-Auth-Token': 'your-api-key'
+      }
+    }
+  );
+  
+  const invoices = await response.json();
+  // Process new invoices
+}, 300000);
+```
+
+### Option 3: Database Triggers
+
+Implement database-level triggers that call external APIs when data changes.
+
+## Webhook Event Structure
+
+If implementing webhooks, we recommend the following event structure:
+
+### Webhook Payload
+
+```json
+{
+  "id": "evt_123456789",
+  "event": "invoice.created",
+  "created": 1709546400,
+  "data": {
+    "object": {
+      "idfactura": 123,
+      "codigo": "FAC2026001",
+      "codcliente": "CUST001",
+      "total": 1000.00,
+      "fecha": "2026-03-04",
+      "pagada": false
+    }
+  }
+}
+```
+
+### Event Types
+
+Recommended event naming convention:
+
+| Event | Description |
+|-------|-------------|
+| `invoice.created` | New invoice created |
+| `invoice.updated` | Invoice modified |
+| `invoice.deleted` | Invoice deleted |
+| `invoice.paid` | Invoice marked as paid |
+| `customer.created` | New customer created |
+| `customer.updated` | Customer information updated |
+| `product.created` | New product added |
+| `product.updated` | Product information updated |
+| `receipt.paid` | Payment receipt marked as paid |
+
+## Webhook Security
+
+### Signature Verification
+
+Implement webhook signature verification to ensure authenticity:
+
+```php
+// Generate signature
+$secret = 'your-webhook-secret';
+$payload = json_encode($webhookData);
+$signature = hash_hmac('sha256', $payload, $secret);
+
+// Send with signature header
+$headers = [
+    'Content-Type: application/json',
+    'X-Webhook-Signature: ' . $signature
+];
+```
+
+### Receiving Webhooks
+
+Verify the signature when receiving webhooks:
+
+```php
+// Verify webhook signature
+$secret = 'your-webhook-secret';
+$payload = file_get_contents('php://input');
+$receivedSignature = $_SERVER['HTTP_X_WEBHOOK_SIGNATURE'];
+$expectedSignature = hash_hmac('sha256', $payload, $secret);
+
+if (!hash_equals($expectedSignature, $receivedSignature)) {
+    http_response_code(401);
+    die('Invalid signature');
+}
+
+// Process webhook
+$data = json_decode($payload, true);
+```
+
+## Webhook Best Practices
+
+<AccordionGroup>
+  <Accordion title="Idempotency">
+    Include a unique event ID in each webhook. Receiving systems should track processed event IDs to handle duplicate deliveries.
+  </Accordion>
+  
+  <Accordion title="Retry Logic">
+    Implement exponential backoff for failed webhook deliveries:
+    - First retry: After 5 seconds
+    - Second retry: After 25 seconds
+    - Third retry: After 125 seconds
+    - Maximum retries: 5 attempts
+  </Accordion>
+  
+  <Accordion title="Timeout Handling">
+    Set reasonable timeouts for webhook HTTP requests (e.g., 10 seconds) to avoid blocking the application.
+  </Accordion>
+  
+  <Accordion title="Logging">
+    Log all webhook deliveries, including:
+    - Event type and ID
+    - Destination URL
+    - Response status code
+    - Timestamp
+    - Error messages if failed
+  </Accordion>
+  
+  <Accordion title="Webhook Management UI">
+    Provide a user interface for:
+    - Registering webhook URLs
+    - Selecting event types to receive
+    - Viewing delivery logs
+    - Testing webhooks
+    - Disabling/enabling webhooks
+  </Accordion>
+</AccordionGroup>
+
+## Testing Webhooks
+
+### Local Testing
+
+Use tools like ngrok to test webhooks locally:
+
+```bash
+# Start ngrok tunnel
+ngrok http 8000
+
+# Use the ngrok URL as your webhook endpoint
+https://abc123.ngrok.io/webhook
+```
+
+### Webhook Testing Tools
+
+- **RequestBin**: https://requestbin.com
+- **Webhook.site**: https://webhook.site
+- **Beeceptor**: https://beeceptor.com
+
+These services provide temporary URLs that log incoming webhook requests.
+
+## Alternative: API Polling
+
+If implementing webhooks is not feasible, use API polling with timestamps:
+
+```bash
+# Get invoices created after a specific timestamp
+GET /api/3/facturacliente?filter[creationdate_gt]=2026-03-04T10:00:00
+```
+
+Store the timestamp of your last poll and use it in subsequent requests:
+
+```javascript
+let lastPoll = localStorage.getItem('lastPoll') || '2026-01-01T00:00:00';
+
+const response = await fetch(
+  `https://example.com/api/3/facturacliente?filter[creationdate_gt]=${lastPoll}`,
+  {
+    headers: { 'X-Auth-Token': 'your-api-key' }
+  }
+);
+
+const invoices = await response.json();
+
+if (invoices.length > 0) {
+  // Process new invoices
+  const latestDate = invoices[0].creationdate;
+  localStorage.setItem('lastPoll', latestDate);
+}
+```
+
+## Custom Webhook Plugin Example
+
+Here's a basic structure for a webhook plugin:
+
+```php
+namespace FacturaScripts\Plugins\WebhookManager;
+
+use FacturaScripts\Core\Base\InitClass;
+use FacturaScripts\Dinamic\Model\FacturaCliente;
+
+class Init extends InitClass
+{
+    public function init()
+    {
+        $this->loadExtension(new Extension\Model\FacturaCliente());
+    }
+    
+    public function update()
+    {
+        // Create webhooks table
+        $sql = "
+            CREATE TABLE IF NOT EXISTS webhooks (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                url VARCHAR(255) NOT NULL,
+                events TEXT,
+                secret VARCHAR(255),
+                enabled BOOLEAN DEFAULT TRUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ";
+        
+        self::$dataBase->exec($sql);
+    }
+}
+```
+
+## Need Help?
+
+If you need custom webhook functionality:
+
+1. Check the FacturaScripts plugin marketplace for existing webhook plugins
+2. Hire a FacturaScripts developer to create a custom webhook plugin
+3. Use the API with polling as an alternative
+4. Join the FacturaScripts community forum for guidance
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="API Overview" icon="code" href="/api/overview">
+    Learn about the REST API
+  </Card>
+  <Card title="Endpoints" icon="webhook" href="/api/endpoints">
+    Explore available endpoints
+  </Card>
+</CardGroup>

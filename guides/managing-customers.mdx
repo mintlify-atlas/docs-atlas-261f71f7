@@ -1,0 +1,372 @@
+---
+title: Managing Customers and Suppliers
+description: Complete guide to creating, editing, and managing customer and supplier records in FacturaScripts
+---
+
+This guide covers everything you need to know about managing your customer and supplier database in FacturaScripts.
+
+## Understanding Customer Records
+
+FacturaScripts uses the **Cliente** model (EditCliente.php) for customer management, which includes:
+
+- Basic information (name, tax ID, contact details)
+- Multiple addresses and contacts
+- Banking information
+- Financial settings (credit limit, payment terms)
+- VAT regime and tax settings
+- Document history (invoices, orders, estimates)
+
+## Creating a New Customer
+
+<Steps>
+  <Step title="Navigate to Customers">
+    Go to **Sales** > **Customers** from the main menu (EditCliente.php:95).
+  </Step>
+  
+  <Step title="Click New Customer">
+    Click the **New** button to open the customer creation form.
+  </Step>
+  
+  <Step title="Enter Basic Information">
+    Fill in the required fields:
+    - **Name (Nombre)**: Customer's full name or company name
+    - **Tax ID (NIF/CIF)**: Tax identification number
+    - **Customer Code (Código)**: Auto-generated or manual code
+  </Step>
+  
+  <Step title="Configure Contact Details">
+    Add primary contact information:
+    - Email address
+    - Phone number
+    - Mobile number
+    - Website
+    
+    <Note>The system creates a default contact record with this information (EditCliente.php:177).</Note>
+  </Step>
+  
+  <Step title="Set Tax Configuration">
+    Configure tax settings:
+    - **VAT Regime (Régimen IVA)**: Select the customer's VAT status (EditCliente.php:293)
+    - **VAT Exception**: If applicable, select tax exemption reason (EditCliente.php:270)
+    - **IRPF**: Withholding tax percentage for professionals
+  </Step>
+  
+  <Step title="Configure Financial Settings">
+    Set financial parameters:
+    - **Payment Method**: Default payment method
+    - **Payment Terms**: Days until payment due
+    - **Credit Limit**: Maximum allowed credit
+    - **Invoice Series**: Default series for invoices
+  </Step>
+  
+  <Step title="Save Customer">
+    Click **Save** to create the customer record.
+    
+    <Tip>If you're creating a customer from within an invoice, you'll be redirected back to the invoice after saving (EditCliente.php:199).</Tip>
+  </Step>
+</Steps>
+
+## Managing Customer Addresses
+
+Customers can have multiple addresses for billing and shipping:
+
+<Steps>
+  <Step title="Open Customer Record">
+    Navigate to an existing customer.
+  </Step>
+  
+  <Step title="Access Addresses Tab">
+    Click the **Addresses and Contacts** tab (EditCliente.php:158).
+  </Step>
+  
+  <Step title="Add New Address">
+    Click **New** and enter:
+    - **Description**: Address label (e.g., "Main Office", "Warehouse")
+    - **Address**: Street address
+    - **Postal Code**: ZIP/postal code
+    - **City**: City name
+    - **Province**: State/province
+    - **Country**: Country code
+  </Step>
+  
+  <Step title="Set as Default">
+    You can set addresses as:
+    - **Default Billing Address**: Used for invoices (EditCliente.php:311)
+    - **Default Shipping Address**: Used for deliveries (EditCliente.php:317)
+  </Step>
+  
+  <Step title="Update Existing Documents">
+    To apply an address change to existing documents:
+    1. Select the address
+    2. Click **Update Docs Address** (EditCliente.php:162)
+    3. Confirm to update all editable sales documents with the new address (EditCliente.php:327)
+  </Step>
+</Steps>
+
+<Warning>
+Updating addresses only affects editable (unlocked) documents. Locked invoices retain their original address (EditCliente.php:360).
+</Warning>
+
+## Adding Banking Information
+
+Store customer bank accounts for direct debit and payment tracking:
+
+<Steps>
+  <Step title="Open Banking Tab">
+    In the customer record, click the **Customer Banking Accounts** tab (EditCliente.php:128).
+  </Step>
+  
+  <Step title="Add Bank Account">
+    Click **New** and enter:
+    - **Bank Account**: IBAN or account number
+    - **Description**: Account label
+    - **Mandate Reference**: SEPA direct debit mandate (if applicable)
+    - **Mandate Date**: Date of mandate signature
+  </Step>
+  
+  <Step title="Set as Primary">
+    Mark the primary account for direct debits and automatic payments.
+  </Step>
+</Steps>
+
+## Viewing Customer Risk
+
+FacturaScripts calculates customer risk across multiple document types:
+
+<AccordionGroup>
+  <Accordion title="Unpaid Invoices" icon="file-invoice">
+    Shows the total amount of unpaid invoices (EditCliente.php:68).
+    
+    This includes all invoices marked as unpaid in the system.
+  </Accordion>
+  
+  <Accordion title="Pending Orders" icon="cart-shopping">
+    Displays risk from confirmed orders not yet invoiced (EditCliente.php:85).
+    
+    Orders remain in this category until converted to invoices or delivery notes.
+  </Accordion>
+  
+  <Accordion title="Pending Delivery Notes" icon="truck">
+    Shows value of delivery notes not yet invoiced (EditCliente.php:50).
+    
+    These represent shipped goods awaiting invoicing.
+  </Accordion>
+</AccordionGroup>
+
+The total risk is compared against the customer's credit limit. You'll see warnings if the customer exceeds their limit.
+
+## Viewing Customer Documents
+
+Access all customer documents from their record:
+
+<Tabs>
+  <Tab title="Invoices">
+    The **Invoices** tab (EditCliente.php:137) shows:
+    - All customer invoices
+    - Invoice status (paid, pending, overdue)
+    - Total amounts and dates
+    - Quick access to print or email
+  </Tab>
+  
+  <Tab title="Delivery Notes">
+    View all delivery notes for the customer (EditCliente.php:142):
+    - Pending delivery notes
+    - Delivered goods
+    - Conversion status to invoice
+  </Tab>
+  
+  <Tab title="Orders">
+    Access customer orders (EditCliente.php:145):
+    - Pending orders
+    - Order status
+    - Fulfillment tracking
+  </Tab>
+  
+  <Tab title="Estimates">
+    Review all quotes and estimates (EditCliente.php:148):
+    - Pending estimates
+    - Accepted/rejected status
+    - Conversion to orders or invoices
+  </Tab>
+  
+  <Tab title="Receipts">
+    Manage payment receipts (EditCliente.php:151):
+    - Payment schedule
+    - Due dates
+    - Payment status
+  </Tab>
+  
+  <Tab title="Invoice Lines">
+    View detailed line items from all customer invoices (EditCliente.php:139):
+    - Purchase history by product
+    - Quantities and prices
+    - Product performance analysis
+  </Tab>
+</Tabs>
+
+## Working with Subaccounts
+
+For accounting integration, customers can have associated subaccounts:
+
+<Steps>
+  <Step title="Access Subaccounts">
+    In the customer record, click the **Subaccounts** tab (requires EditSubcuenta permission) (EditCliente.php:130).
+  </Step>
+  
+  <Step title="Configure Subaccount">
+    Enter or select:
+    - **Subaccount Code**: Accounting code for the customer
+    - **Description**: Subaccount description
+  </Step>
+  
+  <Step title="Verify Length">
+    The system validates that the subaccount code length matches your accounting plan configuration (EditCliente.php:175).
+  </Step>
+</Steps>
+
+## Generating Accounting Entries
+
+For customers with multiple invoices:
+
+<Steps>
+  <Step title="View Invoices Tab">
+    Open the customer record and go to **Invoices** tab.
+  </Step>
+  
+  <Step title="Generate Bulk Accounting">
+    Select multiple invoices and click **Generate Accounting** to create accounting entries for all selected invoices (EditCliente.php:238).
+  </Step>
+</Steps>
+
+## Managing Supplier Records
+
+Supplier management follows the same principles as customers:
+
+- Navigate to **Purchases** > **Suppliers**
+- Create and manage supplier records
+- Configure payment terms and banking details
+- Track supplier invoices and payments
+
+The functionality is identical to customer management, but within the purchasing workflow.
+
+## Advanced Features
+
+<AccordionGroup>
+  <Accordion title="Customer Groups" icon="layer-group">
+    Organize customers into groups for:
+    - Targeted marketing campaigns
+    - Special pricing rules
+    - Customized payment terms
+    - Reporting and analysis
+  </Accordion>
+  
+  <Accordion title="Price Lists" icon="tags">
+    Assign special price lists to customers:
+    - Volume discounts
+    - Seasonal pricing
+    - Customer-specific rates
+    - Automatic discount application
+  </Accordion>
+  
+  <Accordion title="Multi-language Support" icon="language">
+    Set customer language preference (EditCliente.php:277):
+    - Invoice language
+    - Email communications
+    - Document templates
+    - User interface language
+  </Accordion>
+  
+  <Accordion title="Custom Fields" icon="sliders">
+    Add custom fields to customer records:
+    - Industry classification
+    - Sales representative assignment
+    - Custom notes and tags
+    - Integration identifiers
+  </Accordion>
+</AccordionGroup>
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Complete Data" icon="clipboard-check">
+    Always enter complete customer information:
+    - Valid tax ID for legal compliance
+    - Multiple contact options
+    - Accurate billing addresses
+    - Banking details for direct debit
+  </Card>
+  
+  <Card title="Regular Updates" icon="arrows-rotate">
+    Keep customer data current:
+    - Review contact information periodically
+    - Update credit limits based on payment history
+    - Verify tax status annually
+    - Clean up inactive customers
+  </Card>
+  
+  <Card title="Credit Management" icon="scale-balanced">
+    Monitor customer credit:
+    - Set appropriate credit limits
+    - Track payment history
+    - Review overdue invoices regularly
+    - Adjust limits based on reliability
+  </Card>
+  
+  <Card title="Data Privacy" icon="shield-halved">
+    Protect customer information:
+    - Limit access to sensitive data
+    - Follow GDPR requirements
+    - Secure banking information
+    - Regular data backups
+  </Card>
+</CardGroup>
+
+## Common Tasks
+
+<AccordionGroup>
+  <Accordion title="Merging Duplicate Customers" icon="code-merge">
+    If you have duplicate customer records:
+    1. Identify the master record to keep
+    2. Update all documents to reference the master customer
+    3. Transfer addresses and contacts
+    4. Delete the duplicate record
+    
+    <Warning>Ensure all documents are updated before deleting duplicates.</Warning>
+  </Accordion>
+  
+  <Accordion title="Bulk Contact Updates" icon="envelopes-bulk">
+    To update multiple customer contacts:
+    1. Export customer list to CSV
+    2. Update contact information in spreadsheet
+    3. Import updated data back into system
+    4. Verify changes in customer records
+  </Accordion>
+  
+  <Accordion title="Archiving Inactive Customers" icon="box-archive">
+    For customers no longer active:
+    1. Mark customer as inactive
+    2. Export historical data for archival
+    3. Remove from active customer lists
+    4. Retain records for legal/tax requirements
+  </Accordion>
+</AccordionGroup>
+
+## Related Topics
+
+<CardGroup cols={2}>
+  <Card title="Creating Invoices" icon="file-invoice-dollar" href="/guides/creating-invoices">
+    Learn how to create invoices for customers
+  </Card>
+  
+  <Card title="CRM Features" icon="handshake" href="/features/crm">
+    Explore customer relationship management tools
+  </Card>
+  
+  <Card title="Reports" icon="chart-line" href="/features/reports">
+    Generate customer analysis reports
+  </Card>
+  
+  <Card title="Administration" icon="gear" href="/admin/configuration">
+    Configure customer-related settings
+  </Card>
+</CardGroup>

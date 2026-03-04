@@ -1,0 +1,558 @@
+---
+title: Database Layer
+description: Deep dive into FacturaScripts database abstraction, query builder, and migrations
+---
+
+## Overview
+
+FacturaScripts provides a robust database abstraction layer that supports both MySQL and PostgreSQL. The system consists of three main components:
+
+- **DataBase class** - Low-level database operations and connection management
+- **DbQuery class** - Fluent query builder for constructing SQL queries
+- **Migrations class** - Database schema versioning and data migrations
+
+## DataBase Class
+
+The `DataBase` class (`Core/Base/DataBase.php`) provides the foundation for all database operations.
+
+### Initialization
+
+```php
+use FacturaScripts\Core\Base\DataBase;
+
+$db = new DataBase();
+$db->connect();
+```
+
+The database automatically connects using configuration from `config.php` and selects the appropriate engine (MySQL or PostgreSQL) based on the `db_type` setting.
+
+### Basic Operations
+
+#### Executing Queries
+
+```php
+// Execute INSERT, UPDATE, or DELETE
+$sql = "UPDATE clientes SET nombre = 'New Name' WHERE codcliente = 'CUST001'";
+$db->exec($sql);
+
+// SELECT queries
+$sql = "SELECT * FROM clientes WHERE activo = TRUE";
+$results = $db->select($sql);
+
+foreach ($results as $row) {
+    echo $row['nombre'];
+}
+```
+
+#### Paginated Queries
+
+```php
+// Get 50 records starting from offset 100
+$sql = "SELECT * FROM productos ORDER BY referencia";
+$results = $db->selectLimit($sql, 50, 100);
+```
+
+### Transaction Management
+
+The `DataBase` class provides automatic transaction management:
+
+```php
+$db->beginTransaction();
+
+try {
+    $db->exec("INSERT INTO tabla1 VALUES (...);");
+    $db->exec("INSERT INTO tabla2 VALUES (...);");
+    $db->commit();
+} catch (Exception $e) {
+    $db->rollback();
+    // Handle error
+}
+```
+
+<Note>
+The `exec()` method automatically starts a transaction if one isn't already active, and commits it when successful.
+</Note>
+
+### Data Escaping
+
+```php
+// Escape string values
+$safe = $db->escapeString($userInput);
+
+// Escape column names
+$column = $db->escapeColumn('nombre');
+
+// Convert PHP values to SQL strings
+$value = $db->var2str('2024-01-15'); // Returns: '2024-01-15'
+$value = $db->var2str(null);         // Returns: NULL
+$value = $db->var2str(true);         // Returns: TRUE
+```
+
+### Schema Information
+
+```php
+// Get all tables
+$tables = $db->getTables();
+
+// Check if table exists
+if ($db->tableExists('productos')) {
+    // Table exists
+}
+
+// Get table columns
+$columns = $db->getColumns('clientes');
+foreach ($columns as $name => $info) {
+    echo "Column: {$name}, Type: {$info['type']}";
+}
+
+// Get table indexes
+$indexes = $db->getIndexes('facturas');
+
+// Get constraints
+$constraints = $db->getConstraints('lineasfactura');
+```
+
+### Database-Specific Operations
+
+```php
+// Get database type (mysql or postgresql)
+$type = $db->type();
+
+// Get database version
+$version = $db->version();
+
+// Get random function for current engine
+$random = $db->random(); // RAND() or RANDOM()
+
+// Get last inserted ID
+$lastId = $db->lastval();
+```
+
+## DbQuery Class
+
+The `DbQuery` class (`Core/DbQuery.php`) provides a fluent interface for building SQL queries without writing raw SQL.
+
+### Basic Queries
+
+#### Select
+
+```php
+use FacturaScripts\Core\DbQuery;
+
+// Select all columns
+$results = DbQuery::table('clientes')->get();
+
+// Select specific columns
+$results = DbQuery::table('clientes')
+    ->select('codcliente, nombre, email')
+    ->get();
+
+// Get first result
+$cliente = DbQuery::table('clientes')
+    ->whereEq('codcliente', 'CUST001')
+    ->first();
+```
+
+### Where Clauses
+
+```php
+use FacturaScripts\Core\Where;
+
+// Equality
+$query = DbQuery::table('productos')
+    ->whereEq('activo', true);
+
+// Greater than / Less than
+$query = DbQuery::table('productos')
+    ->whereGt('precio', 100)
+    ->whereLt('stock', 50);
+
+// Greater than or equal / Less than or equal
+$query = DbQuery::table('facturas')
+    ->whereGte('fecha', '2024-01-01')
+    ->whereLte('fecha', '2024-12-31');
+
+// Not equal
+$query = DbQuery::table('clientes')
+    ->whereNotEq('codpais', 'ESP');
+
+// LIKE
+$query = DbQuery::table('productos')
+    ->whereLike('referencia', '%ABC%');
+
+// IN / NOT IN
+$query = DbQuery::table('productos')
+    ->whereIn('codfamilia', ['FAM001', 'FAM002', 'FAM003']);
+
+$query = DbQuery::table('clientes')
+    ->whereNotIn('codgrupo', ['BLOCKED', 'INACTIVE']);
+
+// NULL checks
+$query = DbQuery::table('contactos')
+    ->whereNull('email');
+
+$query = DbQuery::table('contactos')
+    ->whereNotNull('telefono');
+
+// BETWEEN
+$query = DbQuery::table('facturas')
+    ->whereBetween('total', 100, 500);
+
+// Multiple conditions
+$query = DbQuery::table('productos')
+    ->where([
+        Where::eq('activo', true),
+        Where::gt('stock', 0),
+        Where::like('descripcion', '%premium%')
+    ]);
+
+// Dynamic where methods
+$query = DbQuery::table('clientes')
+    ->whereCodcliente('CUST001')  // whereEq('codcliente', 'CUST001')
+    ->whereNombre('John Doe');    // whereEq('nombre', 'John Doe')
+```
+
+### Ordering and Grouping
+
+```php
+// Order by
+$query = DbQuery::table('productos')
+    ->orderBy('referencia', 'ASC');
+
+// Multiple order by
+$query = DbQuery::table('productos')
+    ->orderBy('codfamilia', 'ASC')
+    ->orderBy('precio', 'DESC');
+
+// Order by multiple fields at once
+$query = DbQuery::table('productos')
+    ->orderMulti(['codfamilia' => 'ASC', 'precio' => 'DESC']);
+
+// Random order
+$query = DbQuery::table('productos')
+    ->orderByRandom();
+
+// Case-insensitive ordering
+$query = DbQuery::table('clientes')
+    ->orderBy('lower:nombre', 'ASC');
+
+// Cast to integer for ordering
+$query = DbQuery::table('productos')
+    ->orderBy('integer:referencia', 'ASC');
+
+// Group by
+$query = DbQuery::table('lineasfactura')
+    ->select('referencia')
+    ->groupBy('referencia');
+
+// Group by with HAVING
+$query = DbQuery::table('lineasfactura')
+    ->select('referencia')
+    ->groupBy('referencia')
+    ->having('SUM(cantidad) > 100');
+```
+
+### Aggregates
+
+```php
+// Count
+$total = DbQuery::table('clientes')->count();
+
+// Count distinct
+$uniqueCountries = DbQuery::table('clientes')
+    ->count('codpais');
+
+// Sum
+$totalSales = DbQuery::table('facturas')
+    ->whereEq('codcliente', 'CUST001')
+    ->sum('total');
+
+// Average
+$avgPrice = DbQuery::table('productos')
+    ->avg('precio');
+
+// Min / Max
+$minPrice = DbQuery::table('productos')->min('precio');
+$maxPrice = DbQuery::table('productos')->max('precio');
+
+// Grouped aggregates
+$salesByCustomer = DbQuery::table('facturas')
+    ->sumArray('total', 'codcliente');
+// Returns: ['CUST001' => 1500.50, 'CUST002' => 2300.75, ...]
+
+$countByCountry = DbQuery::table('clientes')
+    ->countArray('codcliente', 'codpais');
+
+$avgByFamily = DbQuery::table('productos')
+    ->avgArray('precio', 'codfamilia');
+```
+
+### Insert, Update, Delete
+
+```php
+// Insert single row
+DbQuery::table('clientes')->insert([
+    'codcliente' => 'CUST001',
+    'nombre' => 'John Doe',
+    'email' => 'john@example.com'
+]);
+
+// Insert and get ID
+$id = DbQuery::table('productos')->insertGetId([
+    'referencia' => 'PROD001',
+    'descripcion' => 'Product 1',
+    'precio' => 99.99
+]);
+
+// Insert multiple rows
+DbQuery::table('productos')->insert([
+    ['referencia' => 'PROD001', 'descripcion' => 'Product 1'],
+    ['referencia' => 'PROD002', 'descripcion' => 'Product 2'],
+    ['referencia' => 'PROD003', 'descripcion' => 'Product 3']
+]);
+
+// Update
+DbQuery::table('clientes')
+    ->whereEq('codcliente', 'CUST001')
+    ->update(['email' => 'newemail@example.com']);
+
+// Delete
+DbQuery::table('productos')
+    ->whereEq('activo', false)
+    ->whereLt('stock', 0)
+    ->delete();
+```
+
+### Pagination and Limits
+
+```php
+// Limit
+$recent = DbQuery::table('facturas')
+    ->orderBy('fecha', 'DESC')
+    ->limit(10)
+    ->get();
+
+// Limit with offset (for pagination)
+$page2 = DbQuery::table('productos')
+    ->orderBy('referencia')
+    ->limit(50)
+    ->offset(50)
+    ->get();
+```
+
+### Utility Methods
+
+```php
+// Get key-value array
+$options = DbQuery::table('familias')
+    ->array('codfamilia', 'descripcion');
+// Returns: ['FAM001' => 'Electronics', 'FAM002' => 'Clothing', ...]
+
+// Get SQL without executing
+$sql = DbQuery::table('clientes')
+    ->whereEq('activo', true)
+    ->orderBy('nombre')
+    ->sql();
+```
+
+## Migrations
+
+The `Migrations` class (`Core/Migrations.php`) manages database schema changes and data migrations.
+
+### Core Migrations
+
+FacturaScripts includes built-in migrations that run automatically:
+
+```php
+use FacturaScripts\Core\Migrations;
+
+// Run all core migrations
+Migrations::run();
+```
+
+Core migrations are tracked in `MyFiles/migrations.json` and only run once.
+
+### Plugin Migrations
+
+Plugins can define custom migrations by extending `MigrationClass`:
+
+```php
+namespace FacturaScripts\Plugins\MyPlugin\Migration;
+
+use FacturaScripts\Core\Template\MigrationClass;
+use FacturaScripts\Core\Base\DataBase;
+
+class Migration001 extends MigrationClass
+{
+    public function run(): void
+    {
+        $db = new DataBase();
+        $db->connect();
+        
+        // Add new column to existing table
+        if ($db->tableExists('productos')) {
+            $sql = "ALTER TABLE productos ADD COLUMN custom_field VARCHAR(50);";
+            $db->exec($sql);
+        }
+        
+        // Insert default data
+        $sql = "INSERT INTO custom_config (key, value) 
+                VALUES ('plugin_enabled', 'true');";
+        $db->exec($sql);
+    }
+}
+```
+
+### Running Plugin Migrations
+
+In your plugin's `Init.php`:
+
+```php
+namespace FacturaScripts\Plugins\MyPlugin;
+
+use FacturaScripts\Core\Migrations;
+use FacturaScripts\Core\Template\InitClass;
+use FacturaScripts\Plugins\MyPlugin\Migration\Migration001;
+use FacturaScripts\Plugins\MyPlugin\Migration\Migration002;
+
+class Init extends InitClass
+{
+    public function init(): void
+    {
+        // Code that runs on every request
+    }
+    
+    public function update(): void
+    {
+        // Run migrations when plugin is enabled or updated
+        Migrations::runPluginMigrations([
+            new Migration001(),
+            new Migration002()
+        ]);
+    }
+    
+    public function uninstall(): void
+    {
+        // Cleanup when plugin is uninstalled
+    }
+}
+```
+
+### Migration Tracking
+
+Migrations are automatically tracked by their full class name. Each migration only runs once:
+
+- Core migrations tracked in: `MyFiles/migrations.json`
+- Plugin migrations tracked with format: `PluginName::MigrationClassName`
+
+### Best Practices
+
+<AccordionGroup>
+  <Accordion title="Always use transactions">
+    Wrap multiple operations in transactions to ensure data consistency:
+    
+    ```php
+    $db->beginTransaction();
+    try {
+        $db->exec($sql1);
+        $db->exec($sql2);
+        $db->commit();
+    } catch (Exception $e) {
+        $db->rollback();
+    }
+    ```
+  </Accordion>
+
+  <Accordion title="Use DbQuery for complex queries">
+    Prefer `DbQuery` over raw SQL for better maintainability and cross-database compatibility:
+    
+    ```php
+    // Good
+    $results = DbQuery::table('productos')
+        ->whereEq('activo', true)
+        ->orderBy('precio')
+        ->get();
+    
+    // Avoid when possible
+    $results = $db->select("SELECT * FROM productos WHERE activo = TRUE ORDER BY precio");
+    ```
+  </Accordion>
+
+  <Accordion title="Always escape user input">
+    Never trust user input in SQL queries:
+    
+    ```php
+    // Good
+    $safe = $db->var2str($userInput);
+    $sql = "SELECT * FROM productos WHERE referencia = {$safe}";
+    
+    // Better - use DbQuery
+    $results = DbQuery::table('productos')
+        ->whereEq('referencia', $userInput)
+        ->get();
+    ```
+  </Accordion>
+
+  <Accordion title="Check table existence in migrations">
+    Always verify tables exist before modifying them:
+    
+    ```php
+    if ($db->tableExists('productos')) {
+        $sql = "ALTER TABLE productos ADD COLUMN new_field VARCHAR(100);";
+        $db->exec($sql);
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Reference
+
+### DataBase Methods
+
+| Method | Description |
+|--------|-------------|
+| `connect()` | Connect to database |
+| `close()` | Close database connection |
+| `exec($sql)` | Execute INSERT/UPDATE/DELETE |
+| `select($sql)` | Execute SELECT query |
+| `selectLimit($sql, $limit, $offset)` | Execute paginated SELECT |
+| `beginTransaction()` | Start transaction |
+| `commit()` | Commit transaction |
+| `rollback()` | Rollback transaction |
+| `escapeString($str)` | Escape string value |
+| `escapeColumn($name)` | Escape column name |
+| `var2str($value)` | Convert PHP value to SQL |
+| `getTables()` | Get all table names |
+| `tableExists($name)` | Check if table exists |
+| `getColumns($table)` | Get table columns |
+| `getIndexes($table)` | Get table indexes |
+| `getConstraints($table)` | Get table constraints |
+| `lastval()` | Get last insert ID |
+
+### DbQuery Methods
+
+| Method | Description |
+|--------|-------------|
+| `table($name)` | Start query for table |
+| `select($columns)` | Select specific columns |
+| `where($conditions)` | Add WHERE clause |
+| `whereEq($field, $value)` | WHERE field = value |
+| `whereGt($field, $value)` | WHERE field > value |
+| `whereLt($field, $value)` | WHERE field < value |
+| `whereIn($field, $array)` | WHERE field IN (...) |
+| `whereLike($field, $pattern)` | WHERE field LIKE pattern |
+| `orderBy($field, $order)` | Add ORDER BY |
+| `groupBy($fields)` | Add GROUP BY |
+| `having($condition)` | Add HAVING clause |
+| `limit($limit)` | Set LIMIT |
+| `offset($offset)` | Set OFFSET |
+| `get()` | Execute and get results |
+| `first()` | Get first result |
+| `count()` | Get count |
+| `sum($field)` | Get sum |
+| `avg($field)` | Get average |
+| `min($field)` | Get minimum |
+| `max($field)` | Get maximum |
+| `insert($data)` | Insert row(s) |
+| `update($data)` | Update rows |
+| `delete()` | Delete rows |

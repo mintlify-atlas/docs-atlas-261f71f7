@@ -1,0 +1,250 @@
+---
+title: User Management
+description: Manage users, roles, and permissions in FacturaScripts
+icon: users
+---
+
+## Overview
+
+FacturaScripts provides a comprehensive user management system with role-based access control (RBAC). Users can be assigned specific roles that define their permissions across different areas of the application.
+
+## User Model
+
+The User model is located at `Core/Model/User.php` and includes the following key properties:
+
+### User Properties
+
+- **nick**: Username (3-50 alphanumeric characters, required)
+- **email**: Email address (validated)
+- **password**: Encrypted password (min 8 characters, must contain letters and numbers)
+- **admin**: Boolean flag for administrator privileges
+- **enabled**: Whether the user account is active
+- **level**: User level (0-99, admins have level 99)
+- **homepage**: Default page displayed after login
+- **langcode**: User's preferred language
+- **codalmacen**: Default warehouse code
+- **codserie**: Default document series
+- **codagente**: Associated agent code
+- **idempresa**: Associated company ID
+
+### Security Features
+
+#### Password Requirements
+
+Passwords must meet the following criteria (enforced in `User.php:328`):
+
+- Minimum 8 characters
+- Must contain at least one number
+- Must contain at least one letter
+- Automatically hashed using PHP's `PASSWORD_DEFAULT` algorithm
+
+```php
+if (strlen($value) < 8 || !preg_match('/[0-9]/', $value) || !preg_match('/[a-zA-Z]/', $value)) {
+    return false;
+}
+```
+
+#### Two-Factor Authentication (2FA)
+
+FacturaScripts supports TOTP-based two-factor authentication:
+
+- **two_factor_enabled**: Boolean to enable/disable 2FA
+- **two_factor_secret_key**: Secret key for TOTP generation
+
+Methods available:
+
+- `enableTwoFactor(string $key = '')`: Activates 2FA and returns secret key
+- `disableTwoFactor()`: Deactivates 2FA
+- `verifyTwoFactorCode(string $code)`: Validates TOTP code
+- `getTwoFactorUrl()`: Returns QR code URL for authenticator apps
+- `getTwoFactorQR()`: Returns QR code image
+
+#### Session Management
+
+User activity is tracked with:
+
+- **lastactivity**: Timestamp of last activity
+- **lastip**: Last IP address (max 40 characters)
+- **lastbrowser**: Last browser string (max 200 characters)
+- **logkey**: 99-character random session key
+
+The system updates activity every `UPDATE_ACTIVITY_PERIOD` (3600 seconds = 1 hour).
+
+## User Permissions
+
+### Permission Levels
+
+1. **Admin Users** (`admin = true`):
+   - Level automatically set to 99
+   - Full access to all pages except those with `only-owner-data` restriction
+   - Can perform all operations
+
+2. **Regular Users** (`admin = false`):
+   - Default level is 2 (`DEFAULT_LEVEL`)
+   - Permissions controlled by assigned roles
+   - Access determined by role configuration
+
+### Checking Permissions
+
+Use the `can()` method to verify user permissions:
+
+```php
+public function can(string $pageName, string $permission = 'access'): bool
+```
+
+Permission types:
+- `access`: Can view the page
+- `update`: Can modify data
+- `delete`: Can delete records
+- `export`: Can export data
+- `import`: Can import data
+- `only-owner-data`: Can only see own data
+
+Example:
+```php
+if ($user->can('ListCustomer', 'update')) {
+    // User can modify customer data
+}
+```
+
+## Role Management
+
+### Role Model
+
+Roles are defined in `Core/Model/Role.php` with:
+
+- **codrole**: Role code (1-20 alphanumeric characters)
+- **descripcion**: Role description
+
+### Role Operations
+
+#### Adding Roles to Users
+
+```php
+$user->addRole('EMPLOYEE');
+```
+
+This method (`User.php:113`):
+1. Checks if user already has the role
+2. Validates the role exists
+3. Adds the role to the user
+4. Sets default homepage if user doesn't have one
+
+#### Removing Roles from Users
+
+```php
+$user->removeRole('EMPLOYEE');
+```
+
+#### Getting User Roles
+
+```php
+$roles = $user->getRoles(); // Returns Role[] array
+```
+
+### Role Access Control
+
+The `RoleAccess` model (`Core/Model/RoleAccess.php`) defines permissions for each page within a role:
+
+- **allowupdate**: Can update records (default: true)
+- **allowdelete**: Can delete records (default: true)
+- **allowexport**: Can export data (default: true)
+- **allowimport**: Can import data (default: true)
+- **onlyownerdata**: Can only access own data (default: false)
+
+#### Adding Pages to Roles
+
+```php
+$role->addPage('ListCustomer');
+```
+
+#### Removing Pages from Roles
+
+```php
+$role->removePage('ListCustomer');
+```
+
+## User Creation
+
+### Default Admin Account
+
+During installation, a default admin account is created with:
+
+- Username: From `initial_user` config (default: 'admin')
+- Password: From `initial_pass` config (default: 'admin')
+- Email: From `initial_email` config
+- Admin privileges: Enabled
+- Homepage: 'Wizard'
+- Level: 99
+
+See `User.php:277` for installation details.
+
+### Creating New Users
+
+When creating a new user:
+
+1. Set required properties (nick, email, password)
+2. Set optional properties (codalmacen, idempresa, langcode)
+3. Call `save()`
+
+Non-admin users automatically receive the default role from settings:
+
+```php
+$code = Tools::settings('default', 'codrole');
+$this->addRole($code);
+```
+
+## User Validation
+
+The `test()` method (`User.php:345`) validates:
+
+- **Nick**: Alphanumeric, 3-50 characters, supports `@`, `+`, `.`, `-`, `_`
+- **Email**: Valid email format
+- **Creation date**: Auto-set if empty
+- **Last activity**: Can be null
+- **Last browser**: HTML-escaped, max 200 characters
+- **Last IP**: HTML-escaped, max 40 characters
+- **Admin level**: Auto-set to 99 if admin
+- **Password**: Complexity requirements
+- **Agent**: Validates associated agent exists
+- **Warehouse**: Validates warehouse exists and belongs to user's company
+
+## User Restrictions
+
+### Cannot Delete Last User
+
+The system prevents deleting the last user (`User.php:207`):
+
+```php
+if ($this->count() === 1) {
+    Tools::log()->error('cant-delete-last-user');
+    return false;
+}
+```
+
+### Disabled Users
+
+Disabled users (`enabled = false`) cannot:
+- Access any pages
+- Perform any operations
+- Log in to the system
+
+This is checked first in the `can()` method (`User.php:164`).
+
+## Best Practices
+
+1. **Always use roles**: Assign permissions via roles rather than individual user settings
+2. **Limit admin users**: Only grant admin privileges when absolutely necessary
+3. **Enable 2FA**: Require two-factor authentication for sensitive accounts
+4. **Regular audits**: Review user activity via `lastactivity`, `lastip`, and `lastbrowser`
+5. **Strong passwords**: The 8-character minimum is enforced, but encourage longer passwords
+6. **Disable unused accounts**: Set `enabled = false` instead of deleting users to preserve audit trails
+
+## Related Files
+
+- User Model: `/Core/Model/User.php`
+- Role Model: `/Core/Model/Role.php`
+- RoleAccess Model: `/Core/Model/RoleAccess.php`
+- RoleUser Model: `/Core/Model/RoleUser.php`
+- TwoFactorManager: `/Core/Lib/TwoFactorManager.php`
+- User Controller: `/Core/Controller/EditUser.php`

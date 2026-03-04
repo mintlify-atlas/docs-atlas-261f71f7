@@ -1,0 +1,276 @@
+---
+title: Invoicing & Quotes
+description: Complete sales document management from quotes to invoices
+icon: file-invoice
+---
+
+FacturaScripts provides a comprehensive invoicing system that manages the complete sales cycle from quotations to final invoices, including delivery notes and customer orders.
+
+## Sales Document Flow
+
+The sales process follows a natural workflow:
+
+<CardGroup cols={2}>
+  <Card title="Quotations" icon="file-lines">
+    Create professional quotes with expiration dates
+  </Card>
+  <Card title="Orders" icon="cart-shopping">
+    Convert quotes to customer orders
+  </Card>
+  <Card title="Delivery Notes" icon="truck">
+    Track deliveries and stock movements
+  </Card>
+  <Card title="Invoices" icon="file-invoice-dollar">
+    Generate final invoices with payment receipts
+  </Card>
+</CardGroup>
+
+## Quotations (Presupuestos)
+
+Quotations represent offers to customers with validity periods.
+
+### Key Features
+
+- **Expiration Management**: Set validity periods for quotes
+- **Status Tracking**: Monitor quote acceptance or rejection
+- **Conversion**: Transform quotes into orders or invoices
+- **Line Items**: Add products with prices, taxes, and discounts
+
+### Data Structure
+
+```php
+class PresupuestoCliente extends SalesDocument
+{
+    public $idpresupuesto;     // Primary key
+    public $finoferta;          // Quote expiration date
+    public $codigo;             // Document code
+    public $numero;             // Document number
+    public $codcliente;         // Customer code
+    public $fecha;              // Document date
+    public $total;              // Total amount
+    
+    public function getLines(): array
+    {
+        // Returns all line items
+    }
+}
+```
+
+## Customer Orders (Pedidos)
+
+Orders represent confirmed purchases from customers.
+
+### Features
+
+- **Stock Reservation**: Reserve products for confirmed orders
+- **Partial Fulfillment**: Track which items have been delivered
+- **Order Status**: Monitor pending, processing, and completed orders
+- **Expiration Dates**: Optional validity periods
+
+### Implementation
+
+Orders are stored in the `Core/Model/PedidoCliente.php` model:
+
+```php
+class PedidoCliente extends SalesDocument
+{
+    public $idpedido;          // Primary key
+    public $finoferta;          // Optional expiration date
+    
+    public function getLines(): array
+    {
+        // Returns order line items
+    }
+}
+```
+
+## Delivery Notes (Albaranes)
+
+Delivery notes document the physical delivery of goods to customers.
+
+### Key Capabilities
+
+- **Stock Management**: Automatically update stock levels on delivery
+- **Partial Deliveries**: Support multiple deliveries per order
+- **Invoice Generation**: Convert delivery notes to invoices
+- **Warehouse Tracking**: Track which warehouse items were shipped from
+
+### Model Structure
+
+See `Core/Model/AlbaranCliente.php`:
+
+```php
+class AlbaranCliente extends SalesDocument
+{
+    public $idalbaran;         // Primary key
+    
+    public function getLines(): array
+    {
+        // Returns delivery note lines
+    }
+    
+    public function getNewLine(array $data = []): LineaAlbaran
+    {
+        // Creates new line with stock update flag
+        $newLine->actualizastock = $this->getStatus()->actualizastock;
+    }
+}
+```
+
+## Invoices (Facturas)
+
+Invoices are the final billing documents that generate payment obligations.
+
+### Core Features
+
+<CardGroup cols={2}>
+  <Card title="Payment Receipts" icon="receipt">
+    Automatically generate payment receipts (recibos)
+  </Card>
+  <Card title="Tax Calculation" icon="percent">
+    Automatic VAT, IRPF, and surcharge calculation
+  </Card>
+  <Card title="Accounting Integration" icon="book">
+    Create accounting entries automatically
+  </Card>
+  <Card title="Payment Tracking" icon="clock">
+    Monitor paid and overdue invoices
+  </Card>
+</CardGroup>
+
+### Invoice Model
+
+Located at `Core/Model/FacturaCliente.php`:
+
+```php
+class FacturaCliente extends SalesDocument
+{
+    use InvoiceTrait;
+    
+    public $idfactura;         // Primary key
+    public $pagada;             // Payment status
+    public $vencida;            // Overdue status
+    public $fechadevengo;       // Accrual date
+    
+    public function getLines(): array
+    {
+        // Returns invoice line items
+    }
+    
+    public function getReceipts(): array
+    {
+        // Returns payment receipts
+    }
+    
+    public function getNewReceipt(int $numero = 1): ReciboCliente
+    {
+        // Creates a new payment receipt
+    }
+}
+```
+
+### Payment Receipts
+
+Invoices automatically generate payment receipts (recibos) that track:
+
+- Payment due dates
+- Payment methods
+- Payment status (pending, paid, returned)
+- Bank account information
+
+## Document Lines
+
+All sales documents share a common line structure:
+
+```php
+// Common line item properties
+$line->referencia;         // Product reference
+$line->descripcion;        // Description
+$line->cantidad;           // Quantity
+$line->pvpunitario;        // Unit price
+$line->dtopor;             // Discount percentage
+$line->codimpuesto;        // Tax code
+$line->iva;                // VAT percentage
+$line->pvptotal;           // Total price
+$line->actualizastock;     // Update stock flag
+```
+
+## Document Status
+
+Each document has a status that controls:
+
+- Whether the document is editable
+- Whether it affects stock levels
+- Whether it generates accounting entries
+- Whether it can be deleted
+
+## Tax Calculation
+
+The system uses the Calculator library for automatic calculation of:
+
+- **Net amounts**: Subtotals before taxes
+- **VAT (IVA)**: Value-added tax
+- **IRPF**: Personal income tax withholding
+- **Recargo de Equivalencia**: Surcharge for special tax regimes
+- **Discounts**: Line-level and document-level discounts
+
+## Date Validation
+
+Invoices include strict date validation:
+
+```php
+protected function testDate(): bool
+{
+    // Prevents using dates that would create numbering gaps
+    // Ensures chronological ordering within series and exercise
+}
+```
+
+## Series and Numbering
+
+Documents are organized by:
+
+- **Series (Serie)**: Document type categorization
+- **Exercise (Ejercicio)**: Fiscal year
+- **Number (Numero)**: Sequential numbering within series and exercise
+
+## Best Practices
+
+<AccordionGroup>
+  <Accordion title="Document Workflow">
+    Follow the natural progression: Quote → Order → Delivery Note → Invoice. Each step can be skipped if needed, but the workflow helps maintain proper records.
+  </Accordion>
+  
+  <Accordion title="Stock Management">
+    Configure document statuses to control when stock is affected. Typically, delivery notes reduce stock, while quotes and orders reserve it.
+  </Accordion>
+  
+  <Accordion title="Payment Terms">
+    Set appropriate payment methods and due dates for each customer. The system will automatically calculate receipt due dates.
+  </Accordion>
+  
+  <Accordion title="Tax Configuration">
+    Ensure products have correct tax codes assigned. The system will use customer tax regime to apply appropriate rates.
+  </Accordion>
+</AccordionGroup>
+
+## Related Models
+
+- `Core/Model/FacturaCliente.php` - Customer invoices
+- `Core/Model/AlbaranCliente.php` - Delivery notes
+- `Core/Model/PedidoCliente.php` - Customer orders
+- `Core/Model/PresupuestoCliente.php` - Quotations
+- `Core/Model/ReciboCliente.php` - Payment receipts
+- `Core/Model/Base/SalesDocument.php` - Base class for all sales documents
+- `Core/Lib/Calculator.php` - Tax and total calculation engine
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Accounting Integration" icon="book" href="/features/accounting">
+    Learn how invoices generate accounting entries
+  </Card>
+  <Card title="Inventory Management" icon="boxes-stacked" href="/features/inventory">
+    Understand stock control and warehouse management
+  </Card>
+</CardGroup>

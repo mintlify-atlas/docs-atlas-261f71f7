@@ -1,0 +1,279 @@
+---
+title: Changelog
+description: Track changes and updates to FacturaScripts
+icon: clock-rotate-left
+---
+
+## Latest Releases
+
+Stay up to date with the latest changes, improvements, and bug fixes in FacturaScripts.
+
+<Card title="View All Releases" icon="github" href="https://github.com/NeoRazorX/facturascripts/releases">
+  See detailed release notes on GitHub
+</Card>
+
+## Release Information
+
+### Latest Stable Release
+
+For production use, always download the latest stable release:
+
+<Card title="Download Stable Version" icon="download" href="https://facturascripts.com/descargar">
+  Get the production-ready version
+</Card>
+
+### Development Version
+
+<Warning>
+  The repository contains the active development version. Expect bugs and breaking changes. Use stable releases for production.
+</Warning>
+
+The main branch on GitHub contains:
+- Latest features under development
+- Experimental changes
+- Bug fixes not yet released
+- Breaking changes
+
+## Tracking Changes
+
+### GitHub Releases
+
+All releases are documented on GitHub with:
+- Version number
+- Release date
+- New features
+- Bug fixes
+- Breaking changes
+- Upgrade instructions
+- Known issues
+
+### Release Notes Format
+
+Release notes typically include:
+
+#### Features
+New functionality added in the release
+
+#### Improvements
+Enhancements to existing features
+
+#### Bug Fixes
+Resolved issues and bugs
+
+#### Breaking Changes
+Changes that may require code updates
+
+#### Security
+Security-related fixes and improvements
+
+#### Database Changes
+Schema changes requiring migrations
+
+## Version Numbering
+
+FacturaScripts follows semantic versioning:
+
+- **Major version** (X.0.0) - Breaking changes
+- **Minor version** (0.X.0) - New features, backward compatible
+- **Patch version** (0.0.X) - Bug fixes, backward compatible
+
+Example: Version 2023.1.5
+- 2023 - Year
+- 1 - Major release of the year
+- 5 - Patch number
+
+## Staying Updated
+
+### Watch the Repository
+
+<Steps>
+  <Step title="Go to GitHub">
+    Visit the [FacturaScripts repository](https://github.com/NeoRazorX/facturascripts)
+  </Step>
+  <Step title="Click Watch">
+    Click the "Watch" button in the top right
+  </Step>
+  <Step title="Select Notifications">
+    Choose "Releases only" to get notified of new releases
+  </Step>
+</Steps>
+
+### Subscribe to Releases
+
+Get notified when new versions are released:
+
+1. Star the repository on GitHub
+2. Watch for "Releases only" notifications
+3. Subscribe to the RSS feed
+4. Follow on social media
+
+### Check for Updates
+
+From within FacturaScripts:
+- Check the about/version section
+- Look for update notifications
+- Compare with latest release on GitHub
+
+## Upgrade Guidelines
+
+### Before Upgrading
+
+<Warning>
+  Always backup your data before upgrading!
+</Warning>
+
+1. **Backup database**
+   ```bash
+   mysqldump -u user -p database > backup.sql
+   ```
+
+2. **Backup files**
+   ```bash
+   tar -czf facturascripts-backup.tar.gz /path/to/facturascripts
+   ```
+
+3. **Read release notes**
+   - Check for breaking changes
+   - Review upgrade instructions
+   - Note database migrations
+   - Check plugin compatibility
+
+4. **Test in development**
+   - Upgrade a development instance first
+   - Test critical functionality
+   - Verify plugins work correctly
+
+### Upgrading Process
+
+<Steps>
+  <Step title="Backup">
+    Create complete backup of database and files
+  </Step>
+  <Step title="Download">
+    Download the new version from releases or pull from Git
+  </Step>
+  <Step title="Update Dependencies">
+    Run `composer install` and `npm install`
+  </Step>
+  <Step title="Run Migrations">
+    Execute any database migrations if required
+  </Step>
+  <Step title="Clear Cache">
+    Delete cache files: `rm -rf Cache/*`
+  </Step>
+  <Step title="Test">
+    Verify all functionality works correctly
+  </Step>
+</Steps>
+
+### Rollback Plan
+
+If upgrade fails:
+
+1. Restore database from backup
+2. Restore files from backup
+3. Report the issue on GitHub
+4. Wait for fix or assistance
+
+## Important Changes
+
+### PHP Version Requirements
+
+FacturaScripts requires PHP 8.0 or higher. Check release notes for any changes to minimum requirements.
+
+### Database Compatibility
+
+Supported databases:
+- MySQL 5.7+
+- MariaDB 10.2+
+- PostgreSQL 10+
+
+### Plugin Compatibility
+
+After major updates:
+- Check plugin compatibility
+- Update plugins to compatible versions
+- Test plugins thoroughly
+- Report plugin issues to plugin authors
+
+## Contributing to Changelog
+
+When contributing code:
+
+1. Describe your changes clearly in PR
+2. Categorize changes (feature, bug fix, etc.)
+3. Note any breaking changes
+4. Update documentation as needed
+
+Maintainers will include your changes in release notes.
+
+## Release Schedule
+
+<Info>
+  FacturaScripts does not follow a fixed release schedule. Releases are made when significant changes are ready.
+</Info>
+
+Typical release pattern:
+- **Patch releases** - As needed for bug fixes
+- **Minor releases** - Every few months for new features
+- **Major releases** - Annually or when breaking changes are necessary
+
+## Historical Releases
+
+View complete release history:
+
+<Card title="All Releases" icon="timeline" href="https://github.com/NeoRazorX/facturascripts/releases">
+  Browse all versions and their changes
+</Card>
+
+### Release Statistics
+
+<Card title="Download Statistics" icon="chart-line" href="https://github.com/NeoRazorX/facturascripts">
+  View download counts and trends
+</Card>
+
+## Security Updates
+
+Security fixes are prioritized:
+- Released as soon as possible
+- Documented in release notes
+- Announced through appropriate channels
+- Applied to supported versions
+
+See our [support guide](/resources/support) for reporting security vulnerabilities.
+
+## Beta and RC Versions
+
+Pre-release versions:
+- **Alpha** - Early development, unstable
+- **Beta** - Feature complete, testing phase
+- **RC** (Release Candidate) - Final testing before release
+
+<Warning>
+  Do not use pre-release versions in production environments.
+</Warning>
+
+## Migration Guides
+
+For major version upgrades, check for dedicated migration guides:
+- Breaking changes explained
+- Code update examples
+- Database migration steps
+- Common issues and solutions
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Roadmap" icon="map" href="/resources/roadmap">
+    See planned features
+  </Card>
+  <Card title="Contributing" icon="code-pull-request" href="/resources/contributing">
+    Help improve FacturaScripts
+  </Card>
+  <Card title="Support" icon="life-ring" href="/resources/support">
+    Get help with updates
+  </Card>
+  <Card title="Troubleshooting" icon="wrench" href="/resources/troubleshooting">
+    Fix update issues
+  </Card>
+</CardGroup>

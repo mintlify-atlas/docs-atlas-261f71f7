@@ -1,0 +1,203 @@
+---
+title: Developer Overview
+description: Introduction to FacturaScripts development - why extend it, architecture overview, and getting started with development
+---
+
+## Why Extend FacturaScripts?
+
+FacturaScripts is a powerful open-source ERP and accounting software designed with extensibility at its core. Built in PHP, it provides a robust foundation for business management while allowing developers to customize and extend functionality through its plugin architecture.
+
+### Key Benefits for Developers
+
+<CardGroup cols={2}>
+  <Card title="Plugin Architecture" icon="puzzle-piece">
+    Create modular extensions without modifying core code. Plugins are isolated, version-controlled, and can be distributed independently.
+  </Card>
+  <Card title="MVC Pattern" icon="layer-group">
+    Clean separation of concerns with Models, Views (Twig templates), and Controllers makes code maintainable and testable.
+  </Card>
+  <Card title="Database Abstraction" icon="database">
+    Support for MySQL and PostgreSQL with automatic schema management and migrations handled by the framework.
+  </Card>
+  <Card title="Modern PHP" icon="code">
+    Built with PHP 8.1+, leveraging namespaces, traits, and modern object-oriented programming practices.
+  </Card>
+</CardGroup>
+
+## What You Can Build
+
+FacturaScripts' extensibility allows you to create:
+
+- **Custom Controllers**: Add new pages and administrative interfaces
+- **Models**: Extend the data layer with new business entities
+- **API Endpoints**: Build RESTful APIs for integrations
+- **Business Logic**: Implement custom calculations, workflows, and automation
+- **UI Components**: Create reusable widgets and form elements
+- **Reports**: Generate custom PDF documents and exports
+- **Integrations**: Connect with external services and third-party APIs
+
+## Development Philosophy
+
+FacturaScripts follows these core principles:
+
+### 1. Plugin-Based Extensions
+
+The core system remains untouched. All customizations happen in plugins located in the `/Plugins` directory. This ensures:
+- Easy updates without losing custom code
+- Modular development and testing
+- Distribution and reuse across installations
+
+### 2. Dynamic Loading
+
+The framework uses a "Dinamic" layer that merges core functionality with plugin overrides:
+
+```php
+// Always use Dinamic namespace for instantiation
+use FacturaScripts\Dinamic\Model\Cliente;
+
+$cliente = new Cliente();
+```
+
+The `Dinamic` folder is automatically generated during deployment and combines:
+- Core classes from `/Core`
+- Plugin extensions from `/Plugins/{PluginName}`
+
+### 3. Convention Over Configuration
+
+FacturaScripts uses naming conventions to reduce boilerplate:
+
+- Controllers in `/Controller` directory
+- Models in `/Model` directory
+- Views in `/View` directory
+- Tables named after model classes (e.g., `Cliente` model → `clientes` table)
+
+## Request Lifecycle Overview
+
+Understanding the request flow is crucial for development:
+
+<Steps>
+  <Step title="Entry Point">
+    Request hits `index.php` which loads configuration and initializes the Kernel.
+  </Step>
+  <Step title="Kernel Initialization">
+    `Kernel::init()` sets up constants, loads language, registers workers, and prepares the environment.
+  </Step>
+  <Step title="Plugin Loading">
+    `Plugins::init()` executes initialization code from all enabled plugins in order.
+  </Step>
+  <Step title="Route Matching">
+    `Kernel::run()` matches the URL to a controller using the routing system.
+  </Step>
+  <Step title="Controller Execution">
+    The matched controller is instantiated and its `run()` method executes.
+  </Step>
+  <Step title="Authentication">
+    Controller checks authentication (public or private access).
+  </Step>
+  <Step title="Business Logic">
+    `privateCore()` or `publicCore()` methods handle the request logic.
+  </Step>
+  <Step title="Response">
+    Controller renders the template and sends the HTTP response.
+  </Step>
+</Steps>
+
+## Core Technologies
+
+FacturaScripts is built with:
+
+| Technology | Purpose |
+|------------|----------|
+| **PHP 8.1+** | Backend language |
+| **MySQL / PostgreSQL** | Database layer |
+| **Twig** | Template engine for views |
+| **Composer** | Dependency management |
+| **PSR-4** | Autoloading standard |
+
+## Development Requirements
+
+Before starting development, ensure you have:
+
+<AccordionGroup>
+  <Accordion title="System Requirements">
+    - PHP 8.1 or higher
+    - MySQL 5.7+ or PostgreSQL 9.6+
+    - Composer (for dependencies)
+    - Web server (Apache/Nginx)
+    - Git (recommended for version control)
+  </Accordion>
+  
+  <Accordion title="PHP Extensions">
+    - curl
+    - gd
+    - intl
+    - mbstring
+    - pdo_mysql or pdo_pgsql
+    - xml
+    - zip
+  </Accordion>
+  
+  <Accordion title="Development Tools">
+    - Code editor (VS Code, PHPStorm recommended)
+    - Xdebug (for debugging)
+    - PHPUnit (for testing)
+    - Browser developer tools
+  </Accordion>
+</AccordionGroup>
+
+## Project Structure
+
+Understanding the directory layout:
+
+```
+FacturaScripts/
+├── Core/                    # Core framework code (do not modify)
+│   ├── Base/               # Base classes (Controller, DataBase, etc.)
+│   ├── Controller/         # Core controllers
+│   ├── Model/              # Core models
+│   ├── View/               # Core views (Twig templates)
+│   ├── Kernel.php          # Application kernel
+│   ├── Plugins.php         # Plugin manager
+│   └── Tools.php           # Utility functions
+├── Dinamic/                # Auto-generated merged code
+├── Plugins/                # Your custom plugins go here
+│   └── YourPlugin/
+│       ├── Controller/
+│       ├── Model/
+│       ├── View/
+│       ├── Init.php        # Plugin initialization
+│       └── facturascripts.ini  # Plugin metadata
+├── MyFiles/                # Runtime data (cache, uploads)
+├── index.php               # Application entry point
+└── config.php              # Configuration file
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="System Architecture" icon="diagram-project" href="/dev/architecture">
+    Learn about the MVC pattern, core components, and how the framework operates.
+  </Card>
+  <Card title="Development Setup" icon="wrench" href="/dev/setup">
+    Set up your development environment and create your first plugin.
+  </Card>
+  <Card title="Creating Plugins" icon="plug" href="/dev/plugins/creating-plugins">
+    Build your first plugin from scratch with step-by-step guidance.
+  </Card>
+  <Card title="API Reference" icon="book" href="/api-reference">
+    Explore the complete API documentation for core classes.
+  </Card>
+</CardGroup>
+
+## Community and Support
+
+Join the FacturaScripts developer community:
+
+- **GitHub**: [https://github.com/NeoRazorX/facturascripts](https://github.com/NeoRazorX/facturascripts)
+- **Documentation**: Official docs and guides
+- **Forum**: Community support and discussions
+- **Issues**: Bug reports and feature requests
+
+<Tip>
+  Start by reading the architecture documentation to understand how the framework components work together, then set up your development environment.
+</Tip>

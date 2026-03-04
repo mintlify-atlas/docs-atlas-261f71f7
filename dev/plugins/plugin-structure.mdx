@@ -1,0 +1,424 @@
+---
+title: Plugin Structure
+description: Understanding FacturaScripts plugin directory structure and configuration
+---
+
+Every FacturaScripts plugin follows a standardized directory structure that determines how components are loaded and integrated into the system.
+
+## Directory Structure
+
+A complete plugin structure:
+
+```
+Plugins/YourPlugin/
+├── facturascripts.ini        # Plugin metadata (required)
+├── Init.php                  # Plugin initialization class
+├── Controller/               # Controllers for web pages and APIs
+│   ├── MyPage.php
+│   └── Api/
+│       └── MyApi.php
+├── Model/                    # Data models
+│   ├── MyModel.php
+│   └── Join/
+│       └── MyJoinModel.php
+├── Table/                    # Database table XML definitions
+│   └── mymodel.xml
+├── XMLView/                  # View definitions
+│   ├── EditMyModel.xml
+│   └── ListMyModel.xml
+├── View/                     # Twig template files
+│   └── MyCustomTemplate.html.twig
+├── Assets/                   # Static assets
+│   ├── CSS/
+│   │   └── custom.css
+│   └── JS/
+│       └── custom.js
+├── Translation/              # Internationalization
+│   ├── en_EN.json
+│   ├── es_ES.json
+│   └── ca_ES.json
+├── Extension/                # Extend core classes
+│   ├── Controller/
+│   │   └── EditCliente.php
+│   └── Model/
+│       └── Cliente.php
+├── Lib/                      # Custom libraries
+│   └── MyHelper.php
+└── Test/                     # PHPUnit tests
+    └── MyModelTest.php
+```
+
+## facturascripts.ini Format
+
+The `facturascripts.ini` file is required for every plugin and defines its metadata.
+
+### Basic Configuration
+
+```ini
+name = "YourPlugin"
+description = "A brief description of your plugin"
+version = 1.0
+min_version = 2025.0
+min_php = 8.0
+```
+
+### All Available Fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Plugin name (must match folder name) |
+| `description` | string | Yes | Brief description shown in admin panel |
+| `version` | float | Yes | Current plugin version (e.g., 1.0, 2.5) |
+| `min_version` | float | Yes | Minimum FacturaScripts version (must be ≥ 2025.0) |
+| `min_php` | float | No | Minimum PHP version (default: 8.0) |
+| `require` | string | No | Comma-separated list of required plugins |
+| `require_php` | string | No | Comma-separated list of required PHP extensions |
+
+### Example with Dependencies
+
+```ini
+name = "AdvancedReports"
+description = "Advanced reporting and analytics"
+version = 2.1
+min_version = 2025.0
+min_php = 8.1
+require = "BaseReports,ExportTools"
+require_php = "gd,zip,mbstring"
+```
+
+## Directory Purposes
+
+### Controller/
+
+Contains controller classes that handle HTTP requests and business logic.
+
+**Naming Convention:**
+- File: `Controller/MyController.php`
+- Class: `FacturaScripts\Plugins\YourPlugin\Controller\MyController`
+- URL: `/MyController`
+
+**Example:**
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Controller;
+
+use FacturaScripts\Core\Base\Controller;
+
+class MyController extends Controller
+{
+    public function privateCore(&$response, $user, $permissions)
+    {
+        parent::privateCore($response, $user, $permissions);
+        // Your logic here
+    }
+
+    public function getPageData(): array
+    {
+        $data = parent::getPageData();
+        $data['title'] = 'My Custom Page';
+        $data['icon'] = 'fa-solid fa-star';
+        $data['menu'] = 'admin';
+        return $data;
+    }
+}
+```
+
+### Model/
+
+Defines data models that represent database tables.
+
+**Naming Convention:**
+- File: `Model/MyModel.php`
+- Class: `FacturaScripts\Plugins\YourPlugin\Model\MyModel`
+- Table: `mymodel` (lowercase)
+
+**Example:**
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Model;
+
+use FacturaScripts\Core\Template\ModelClass;
+use FacturaScripts\Core\Template\ModelTrait;
+
+class MyModel extends ModelClass
+{
+    use ModelTrait;
+
+    public $id;
+    public $name;
+    public $description;
+
+    public static function primaryColumn(): string
+    {
+        return 'id';
+    }
+
+    public static function tableName(): string
+    {
+        return 'mymodel';
+    }
+}
+```
+
+### Table/
+
+XML files that define database table structure.
+
+**Naming Convention:**
+- File: `Table/mymodel.xml` (lowercase, matches table name)
+
+**Example:**
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<table>
+    <column>
+        <name>id</name>
+        <type>serial</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>name</name>
+        <type>character varying(100)</type>
+        <null>NO</null>
+    </column>
+    <column>
+        <name>description</name>
+        <type>text</type>
+    </column>
+    <constraint>
+        <name>mymodel_pkey</name>
+        <type>PRIMARY KEY (id)</type>
+    </constraint>
+</table>
+```
+
+### XMLView/
+
+XML files that define how models are displayed in list and edit views.
+
+**Naming Convention:**
+- List view: `XMLView/ListMyModel.xml`
+- Edit view: `XMLView/EditMyModel.xml`
+
+See the [Views documentation](/dev/plugins/views) for detailed XML structure.
+
+### View/
+
+Custom Twig templates for controllers.
+
+**Usage:**
+```php
+// In your controller
+$this->setTemplate('MyCustomTemplate');
+```
+
+FacturaScripts will look for `Plugins/YourPlugin/View/MyCustomTemplate.html.twig`.
+
+### Assets/
+
+Static files (CSS, JavaScript, images) that enhance your plugin's UI.
+
+**Structure:**
+```
+Assets/
+├── CSS/
+│   ├── custom.css
+│   └── print.css
+├── JS/
+│   ├── custom.js
+│   └── vendor/
+│       └── library.min.js
+└── Images/
+    └── logo.png
+```
+
+**Including Assets:**
+```php
+use FacturaScripts\Dinamic\Lib\AssetManager;
+
+// In your controller
+AssetManager::add('css', FS_ROUTE . '/Plugins/YourPlugin/Assets/CSS/custom.css');
+AssetManager::add('js', FS_ROUTE . '/Plugins/YourPlugin/Assets/JS/custom.js');
+```
+
+### Translation/
+
+JSON files containing translations for different languages.
+
+**Naming Convention:**
+- File: `Translation/{language_code}.json`
+- Examples: `en_EN.json`, `es_ES.json`, `ca_ES.json`, `fr_FR.json`
+
+**Format:**
+```json
+{
+    "my-custom-key": "My custom translation",
+    "welcome-message": "Welcome to our plugin",
+    "error-not-found": "Item not found"
+}
+```
+
+**Usage:**
+```php
+use FacturaScripts\Core\Tools;
+
+// In PHP
+echo Tools::trans('my-custom-key');
+
+// With parameters
+echo Tools::trans('hello-user', ['%name%' => $user->name]);
+```
+
+```twig
+{# In Twig templates #}
+{{ trans('my-custom-key') }}
+```
+
+### Extension/
+
+Extend or modify core classes without changing core files.
+
+**Structure:**
+```
+Extension/
+├── Controller/
+│   └── EditCliente.php
+└── Model/
+    └── Cliente.php
+```
+
+**Example Extension:**
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Extension\Model;
+
+use Closure;
+
+class Cliente
+{
+    /**
+     * Add a custom method to Cliente model
+     */
+    public function myCustomMethod()
+    {
+        return function() {
+            // 'this' refers to the Cliente model instance
+            return $this->nombre . ' - Custom';
+        };
+    }
+
+    /**
+     * Override or extend existing methods
+     */
+    public function save()
+    {
+        return function() {
+            // Custom logic before save
+            if (empty($this->custom_field)) {
+                $this->custom_field = 'default';
+            }
+
+            // Call parent save
+            return Closure::fromCallable([$this, 'parent'])();
+        };
+    }
+}
+```
+
+### Lib/
+
+Custom helper classes and libraries specific to your plugin.
+
+**Example:**
+```php
+<?php
+namespace FacturaScripts\Plugins\YourPlugin\Lib;
+
+class MyHelper
+{
+    public static function formatData($data)
+    {
+        // Your helper logic
+        return $formatted;
+    }
+}
+```
+
+### Test/
+
+PHPUnit tests for your plugin.
+
+**Example:**
+```php
+<?php
+namespace FacturaScripts\Test\Plugins\YourPlugin;
+
+use PHPUnit\Framework\TestCase;
+use FacturaScripts\Plugins\YourPlugin\Model\MyModel;
+
+class MyModelTest extends TestCase
+{
+    public function testCreate()
+    {
+        $model = new MyModel();
+        $model->name = 'Test';
+        $this->assertTrue($model->save());
+    }
+}
+```
+
+## Plugin Loading Order
+
+Plugins are loaded in the order specified by their `order` value in `MyFiles/plugins.json`. When plugins have dependencies:
+
+1. Dependencies are automatically loaded first
+2. Plugins without dependencies load in alphabetical order
+3. The `order` value is assigned when a plugin is enabled
+
+## Deployment Process
+
+When a plugin is enabled or updated, FacturaScripts:
+
+1. **Validates** `facturascripts.ini` and checks compatibility
+2. **Copies assets** from `Assets/` to `MyFiles/Plugins/YourPlugin/Assets/`
+3. **Registers routes** for all controllers
+4. **Loads translations** from `Translation/` directory
+5. **Executes** `Init::update()` if present
+6. **Rebuilds** the database schema from `Table/` definitions
+7. **Clears cache** to ensure fresh data
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Follow Conventions" icon="map-signs">
+    Stick to naming conventions for automatic loading
+  </Card>
+  
+  <Card title="Organize by Feature" icon="folder-tree">
+    Group related files together in subdirectories
+  </Card>
+  
+  <Card title="Document Structure" icon="file-alt">
+    Include a README.md explaining your plugin's structure
+  </Card>
+  
+  <Card title="Version Control" icon="code-branch">
+    Keep Table/ XML files in sync with Model/ classes
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={3}>
+  <Card title="Controllers" icon="code" href="/dev/plugins/controllers">
+    Learn to create controllers
+  </Card>
+  
+  <Card title="Models" icon="database" href="/dev/plugins/models">
+    Work with data models
+  </Card>
+  
+  <Card title="Views" icon="eye" href="/dev/plugins/views">
+    Design user interfaces
+  </Card>
+</CardGroup>

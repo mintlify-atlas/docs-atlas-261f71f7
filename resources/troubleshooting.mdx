@@ -1,0 +1,234 @@
+---
+title: Troubleshooting
+description: Common issues and solutions for FacturaScripts
+icon: wrench
+---
+
+## Installation Issues
+
+### Composer Install Fails
+
+**Problem**: `composer install` fails with dependency errors
+
+**Solution**:
+1. Ensure you have PHP 8.0 or higher installed:
+   ```bash
+   php -v
+   ```
+2. Clear Composer cache:
+   ```bash
+   composer clear-cache
+   ```
+3. Try installing with verbose output to identify the issue:
+   ```bash
+   composer install -vvv
+   ```
+4. Update Composer to the latest version:
+   ```bash
+   composer self-update
+   ```
+
+### Database Connection Errors
+
+**Problem**: Cannot connect to database during setup
+
+**Solution**:
+- Verify database credentials are correct
+- Ensure the database server is running
+- Check that the database user has proper permissions:
+  - CREATE, ALTER, DROP permissions for tables
+  - INSERT, UPDATE, DELETE, SELECT permissions for data
+- For MySQL/MariaDB, verify the port (default: 3306)
+- For PostgreSQL, verify the port (default: 5432)
+- Check firewall settings if database is on a remote server
+
+### Permission Issues
+
+**Problem**: Permission denied errors when accessing files
+
+**Solution**:
+1. Ensure the web server user has write permissions:
+   ```bash
+   # For Apache (www-data user)
+   sudo chown -R www-data:www-data /path/to/facturascripts
+   
+   # Set proper permissions
+   chmod -R 755 /path/to/facturascripts
+   ```
+2. Key directories that need write permissions:
+   - `MyFiles/`
+   - `Dinamic/`
+   - `Cache/`
+
+## Runtime Issues
+
+### White Screen / Blank Page
+
+**Problem**: Application shows a white screen with no error
+
+**Solution**:
+1. Enable error display in PHP:
+   ```php
+   // Add to index.php temporarily
+   ini_set('display_errors', 1);
+   error_reporting(E_ALL);
+   ```
+2. Check PHP error logs:
+   ```bash
+   tail -f /var/log/php/error.log
+   ```
+3. Check web server error logs:
+   ```bash
+   # Apache
+   tail -f /var/log/apache2/error.log
+   
+   # Nginx
+   tail -f /var/log/nginx/error.log
+   ```
+4. Verify all dependencies are installed:
+   ```bash
+   composer install --no-dev
+   ```
+
+### 500 Internal Server Error
+
+**Problem**: HTTP 500 error when accessing the application
+
+**Solution**:
+- Check web server error logs for specific error messages
+- Verify `.htaccess` file exists and is properly configured (Apache)
+- Ensure mod_rewrite is enabled (Apache):
+  ```bash
+  sudo a2enmod rewrite
+  sudo systemctl restart apache2
+  ```
+- Check Nginx configuration for proper PHP-FPM setup
+- Verify PHP extensions are installed:
+  ```bash
+  php -m
+  ```
+
+### Session Issues / Constant Logouts
+
+**Problem**: Users are logged out frequently
+
+**Solution**:
+- Check session configuration in PHP:
+  ```bash
+  php -i | grep session
+  ```
+- Ensure session directory is writable
+- Verify session cookie settings in configuration
+- Check if system clock is synchronized (important for session expiration)
+
+## Performance Issues
+
+### Slow Page Load Times
+
+**Problem**: Application loads slowly
+
+**Solution**:
+1. Enable PHP OpCache:
+   ```ini
+   ; php.ini
+   opcache.enable=1
+   opcache.memory_consumption=128
+   opcache.max_accelerated_files=10000
+   ```
+2. Clear application cache:
+   ```bash
+   rm -rf Cache/*
+   ```
+3. Optimize database:
+   - Add indexes to frequently queried columns
+   - Run database optimization tools
+   - Check slow query log
+4. Check server resources (CPU, RAM, disk I/O)
+
+### High Memory Usage
+
+**Problem**: PHP memory limit exceeded errors
+
+**Solution**:
+1. Increase PHP memory limit:
+   ```ini
+   ; php.ini
+   memory_limit = 256M
+   ```
+2. Optimize database queries
+3. Reduce the number of plugins loaded
+4. Check for memory leaks in custom code
+
+## Plugin Issues
+
+### Plugin Not Loading
+
+**Problem**: Installed plugin doesn't appear or work
+
+**Solution**:
+- Verify plugin is enabled in the plugins section
+- Check plugin compatibility with your FacturaScripts version
+- Clear cache after installing plugins
+- Review plugin error logs
+- Ensure plugin dependencies are installed
+
+### Plugin Conflicts
+
+**Problem**: Application breaks after installing a plugin
+
+**Solution**:
+1. Disable the recently installed plugin
+2. Check for conflicts with other plugins
+3. Review plugin documentation for known issues
+4. Report the issue to plugin developer
+5. As a last resort, manually remove the plugin directory
+
+## Update Issues
+
+### Update Fails
+
+**Problem**: Updating FacturaScripts causes errors
+
+**Solution**:
+1. Always backup before updating:
+   ```bash
+   # Backup database
+   mysqldump -u user -p database > backup.sql
+   
+   # Backup files
+   tar -czf facturascripts-backup.tar.gz /path/to/facturascripts
+   ```
+2. Check release notes for breaking changes
+3. Ensure all dependencies are updated:
+   ```bash
+   composer update
+   npm update
+   ```
+4. Clear cache after updating
+5. Run database migrations if required
+
+### Database Migration Errors
+
+**Problem**: Database migration fails during update
+
+**Solution**:
+- Check database user has ALTER permissions
+- Review migration error messages in logs
+- Restore from backup if migration corrupts data
+- Report migration issues on GitHub with error details
+
+## Getting More Help
+
+If you're still experiencing issues:
+
+1. Search [GitHub Issues](https://github.com/NeoRazorX/facturascripts/issues) for similar problems
+2. Ask in the [Discord Community](https://discord.gg/qKm7j9AaJT)
+3. Create a detailed bug report including:
+   - FacturaScripts version
+   - PHP version
+   - Database type and version
+   - Web server type and version
+   - Error messages and logs
+   - Steps to reproduce the issue
+
+See our [support guide](/resources/support) for more information on getting help.

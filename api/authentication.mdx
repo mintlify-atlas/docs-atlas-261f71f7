@@ -1,0 +1,370 @@
+---
+title: API Authentication
+description: Learn how to authenticate with the FacturaScripts API using API keys
+icon: key
+---
+
+## Overview
+
+The FacturaScripts API uses API key authentication. All API requests must include a valid API key in the request headers.
+
+## API Key Types
+
+There are two types of API keys:
+
+1. **Global API Key** - Configured in the system configuration file, provides full access
+2. **User API Keys** - Created and managed through the admin panel, with granular permissions
+
+### Global API Key
+
+The global API key is defined in your configuration file and provides unrestricted access to all API endpoints.
+
+<Warning>
+The global API key has full access to your system. Use it carefully and only in trusted environments.
+</Warning>
+
+### User API Keys
+
+User API keys are created in the FacturaScripts admin panel and can be configured with specific permissions for each resource and HTTP method.
+
+## API Key Model
+
+API keys are stored in the `api_keys` table and managed through the `ApiKey` model (Core/Model/ApiKey.php).
+
+### API Key Properties
+
+<ParamField path="id" type="integer">
+  Unique identifier for the API key
+</ParamField>
+
+<ParamField path="apikey" type="string">
+  The API key token (20 character random string)
+</ParamField>
+
+<ParamField path="description" type="string">
+  Human-readable description of the API key
+</ParamField>
+
+<ParamField path="nick" type="string">
+  Username associated with the API key
+</ParamField>
+
+<ParamField path="enabled" type="boolean">
+  Whether the API key is active
+</ParamField>
+
+<ParamField path="fullaccess" type="boolean">
+  Whether the key has full access to all resources
+</ParamField>
+
+<ParamField path="creationdate" type="string">
+  Date when the API key was created
+</ParamField>
+
+<ParamField path="lastactivity" type="string">
+  Timestamp of the last API request using this key
+</ParamField>
+
+## Creating an API Key
+
+### Through Admin Panel
+
+1. Navigate to **Settings** → **API Keys**
+2. Click **New**
+3. Enter a description for the key
+4. Choose whether to grant full access or configure specific permissions
+5. Save the API key
+6. Copy the generated API key token
+
+<Note>
+API keys are automatically generated as 20-character random strings when created.
+</Note>
+
+### Programmatically
+
+```php
+use FacturaScripts\Dinamic\Model\ApiKey;
+
+$apiKey = new ApiKey();
+$apiKey->description = 'Integration API Key';
+$apiKey->nick = 'integration-user';
+$apiKey->enabled = true;
+$apiKey->fullaccess = false;
+$apiKey->save();
+
+// The apikey property is automatically generated
+echo "API Key: " . $apiKey->apikey;
+```
+
+## Configuring Permissions
+
+### Full Access
+
+API keys with `fullaccess = true` can access all resources without restrictions.
+
+```php
+$apiKey->fullaccess = true;
+$apiKey->save();
+```
+
+### Resource-Specific Access
+
+For granular control, you can configure permissions per resource using the `ApiAccess` model.
+
+#### Permission Types
+
+<ParamField path="allowget" type="boolean">
+  Allow GET requests (read access)
+</ParamField>
+
+<ParamField path="allowpost" type="boolean">
+  Allow POST requests (create access)
+</ParamField>
+
+<ParamField path="allowput" type="boolean">
+  Allow PUT/PATCH requests (update access)
+</ParamField>
+
+<ParamField path="allowdelete" type="boolean">
+  Allow DELETE requests (delete access)
+</ParamField>
+
+#### Adding Resource Access
+
+```php
+// Grant read-only access to facturacliente resource
+$apiKey->addAccess('facturacliente', false);
+$access = $apiKey->getAccess('facturacliente');
+$access->allowget = true;
+$access->allowpost = false;
+$access->allowput = false;
+$access->allowdelete = false;
+$access->save();
+```
+
+#### Checking Permissions
+
+```php
+// Check if API key has permission
+if ($apiKey->hasAccess('facturacliente', 'get')) {
+    // Allowed to read facturacliente
+}
+
+if ($apiKey->hasAccess('facturacliente', 'post')) {
+    // Allowed to create facturacliente
+}
+```
+
+## Making Authenticated Requests
+
+### Using X-Auth-Token Header
+
+Include your API key in the `X-Auth-Token` header:
+
+```bash
+curl -X GET "https://example.com/api/3/facturacliente" \
+  -H "X-Auth-Token: your-api-key-here"
+```
+
+### Alternative: Token Header
+
+You can also use the `Token` header as an alternative:
+
+```bash
+curl -X GET "https://example.com/api/3/facturacliente" \
+  -H "Token: your-api-key-here"
+```
+
+### JavaScript Example
+
+```javascript
+const apiKey = 'your-api-key-here';
+
+fetch('https://example.com/api/3/facturacliente', {
+  method: 'GET',
+  headers: {
+    'X-Auth-Token': apiKey,
+    'Content-Type': 'application/json'
+  }
+})
+.then(response => response.json())
+.then(data => console.log(data));
+```
+
+### Python Example
+
+```python
+import requests
+
+api_key = 'your-api-key-here'
+url = 'https://example.com/api/3/facturacliente'
+
+headers = {
+    'X-Auth-Token': api_key,
+    'Content-Type': 'application/json'
+}
+
+response = requests.get(url, headers=headers)
+data = response.json()
+```
+
+### PHP Example
+
+```php
+$apiKey = 'your-api-key-here';
+$url = 'https://example.com/api/3/facturacliente';
+
+$ch = curl_init();
+curl_setopt($ch, CURLOPT_URL, $url);
+curl_setopt($ch, CURLOPT_HTTPHEADER, [
+    'X-Auth-Token: ' . $apiKey,
+    'Content-Type: application/json'
+]);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$response = curl_exec($ch);
+$data = json_decode($response, true);
+curl_close($ch);
+```
+
+## Authentication Errors
+
+### Invalid API Key
+
+If the API key is invalid or missing:
+
+```json
+{
+  "error": "auth-token-invalid"
+}
+```
+
+**HTTP Status**: `401 Unauthorized`
+
+### Insufficient Permissions
+
+If the API key doesn't have permission for the requested resource/method:
+
+```json
+{
+  "error": "forbidden"
+}
+```
+
+**HTTP Status**: `403 Forbidden`
+
+### API Disabled
+
+If the API is not enabled in your FacturaScripts installation:
+
+```json
+{
+  "error": "api-disabled"
+}
+```
+
+**HTTP Status**: `403 Forbidden`
+
+## Security Best Practices
+
+<AccordionGroup>
+  <Accordion title="Use HTTPS">
+    Always use HTTPS in production to encrypt API keys in transit.
+  </Accordion>
+  
+  <Accordion title="Limit Permissions">
+    Grant only the minimum necessary permissions to each API key. Avoid using `fullaccess` unless absolutely required.
+  </Accordion>
+  
+  <Accordion title="Rotate Keys Regularly">
+    Periodically generate new API keys and disable old ones.
+  </Accordion>
+  
+  <Accordion title="Monitor Activity">
+    Check the `lastactivity` field to monitor API key usage and detect unauthorized access.
+  </Accordion>
+  
+  <Accordion title="Disable Unused Keys">
+    Set `enabled = false` for API keys that are no longer in use.
+  </Accordion>
+  
+  <Accordion title="Secure Storage">
+    Never commit API keys to version control. Use environment variables or secure configuration management.
+  </Accordion>
+</AccordionGroup>
+
+## Activity Tracking
+
+FacturaScripts automatically tracks API key activity:
+
+```php
+// Last activity is updated automatically on each request
+$apiKey = new ApiKey();
+$apiKey->loadFromCode('1');
+echo $apiKey->lastactivity; // "2026-03-04 10:30:00"
+```
+
+You can manually update activity:
+
+```php
+$apiKey->updateActivity();
+```
+
+## Retrieving API Key Information
+
+### List All Access Rules
+
+```php
+$accesses = $apiKey->getAccesses();
+
+foreach ($accesses as $access) {
+    echo "Resource: {$access->resource}\n";
+    echo "GET: " . ($access->allowget ? 'Yes' : 'No') . "\n";
+    echo "POST: " . ($access->allowpost ? 'Yes' : 'No') . "\n";
+}
+```
+
+### Get Access for Specific Resource
+
+```php
+$access = $apiKey->getAccess('facturacliente');
+
+if ($access) {
+    echo "GET: {$access->allowget}\n";
+    echo "POST: {$access->allowpost}\n";
+    echo "PUT: {$access->allowput}\n";
+    echo "DELETE: {$access->allowdelete}\n";
+}
+```
+
+## Testing Authentication
+
+Test your API key by requesting the API root:
+
+```bash
+curl -X GET "https://example.com/api/3/" \
+  -H "X-Auth-Token: your-api-key-here"
+```
+
+Successful response:
+
+```json
+{
+  "resources": [
+    "facturacliente",
+    "cliente",
+    "producto"
+  ]
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Endpoints" icon="webhook" href="/api/endpoints">
+    Explore available API endpoints
+  </Card>
+  <Card title="Webhooks" icon="bolt" href="/api/webhooks">
+    Learn about webhook support
+  </Card>
+</CardGroup>
