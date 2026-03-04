@@ -1,80 +1,307 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quick Start Guide
+description: Get FacturaScripts up and running in minutes
 ---
 
-## Get started in three steps
-
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will help you quickly set up FacturaScripts and create your first invoice. Perfect for getting familiar with the system.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  This guide uses the development version. For production deployment, see the [Installation Guide](/installation).
+</Note>
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- PHP 8.0 or higher
+- MySQL/MariaDB or PostgreSQL
+- Composer
+- Node.js & npm
+
+See [System Requirements](/system-requirements) for detailed specifications.
+
+## Installation
+
+<Steps>
+  <Step title="Clone and Install">
+    Clone the repository and install dependencies:
+
+    ```bash
+    # Clone the repository
+    git clone https://github.com/NeoRazorX/facturascripts.git
+    cd facturascripts
+
+    # Install PHP dependencies
+    composer install
+
+    # Install JavaScript dependencies
+    npm install
+    ```
+  </Step>
+
+  <Step title="Configure Database">
+    Create a database and configuration file:
+
+    ```sql
+    CREATE DATABASE facturascripts CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    ```
+
+    Create `config.php` in the root directory:
+
+    ```php
+    <?php
+    define('FS_DB_TYPE', 'mysql');
+    define('FS_DB_HOST', 'localhost');
+    define('FS_DB_NAME', 'facturascripts');
+    define('FS_DB_USER', 'your_user');
+    define('FS_DB_PASS', 'your_password');
+    define('FS_TIMEZONE', 'Europe/Madrid');
+    define('FS_DEBUG', true);
+    ```
+  </Step>
+
+  <Step title="Start the Server">
+    Launch the development server:
+
+    ```bash
+    php -S localhost:8000 index.php
+    ```
+
+    Or use the Composer script:
+
+    ```bash
+    composer dev-server
+    ```
+
+    Open http://localhost:8000 in your browser.
+  </Step>
+
+  <Step title="Complete Setup Wizard">
+    The setup wizard will guide you through:
+
+    1. **Create Admin Account**
+       - Choose a secure username and password
+       - Enter your email address
+
+    2. **Company Information**
+       - Company name and tax ID
+       - Address and contact details
+       - Default currency
+
+    3. **Accounting Setup**
+       - Fiscal year start date
+       - Chart of accounts (select your country template)
+       - Tax rates and VAT configuration
+
+    Click **Complete Setup** and wait for initialization (30-60 seconds).
+  </Step>
+</Steps>
+
+## Create Your First Invoice
+
+Now that FacturaScripts is set up, let's create your first invoice:
+
+<Steps>
+  <Step title="Add a Customer">
+    1. Go to **Sales** → **Customers**
+    2. Click **New Customer**
+    3. Fill in required fields:
+       - Name or business name
+       - Tax ID / VAT number
+       - Email address
+       - Billing address
+    4. Click **Save**
+
+    <Info>
+      FacturaScripts will automatically create a subaccount for this customer in your chart of accounts.
+    </Info>
+  </Step>
+
+  <Step title="Add a Product">
+    1. Go to **Warehouse** → **Products**
+    2. Click **New Product**
+    3. Enter product details:
+       - Reference code (SKU)
+       - Description
+       - Sale price
+       - Tax rate
+    4. Click **Save**
+
+    <Tip>
+      You can leave stock management for later. For services, you don't need to track inventory.
+    </Tip>
+  </Step>
+
+  <Step title="Create the Invoice">
+    1. Go to **Sales** → **Invoices**
+    2. Click **New Invoice**
+    3. Select your customer from the dropdown
+    4. In the lines section, click **Add Line**:
+       - Select the product (or enter description manually)
+       - Enter quantity
+       - Price will auto-fill from product data
+       - Tax is calculated automatically
+    5. Review the totals at the bottom
+    6. Click **Save**
+
+    <Info>
+      The invoice code is generated automatically following your configured series numbering.
+    </Info>
+  </Step>
+
+  <Step title="Generate the PDF">
+    After saving the invoice:
+
+    1. Click the **Print** button (printer icon)
+    2. Select the template (default is fine)
+    3. The PDF will be generated and downloaded
+    4. You can now send this to your customer!
+
+    <Accordion title="Email the invoice">
+      To email the invoice directly from FacturaScripts:
+      
+      1. Click **More Actions** → **Send by Email**
+      2. Enter recipient email (pre-filled from customer data)
+      3. Customize the subject and message
+      4. Click **Send**
+
+      Make sure email is configured in **Admin** → **Settings** → **Email**.
+    </Accordion>
+  </Step>
+</Steps>
+
+## Record a Payment
+
+Mark the invoice as paid when you receive payment:
+
+1. Open the invoice
+2. Click **More Actions** → **Generate Payment Receipt**
+3. Enter payment details:
+   - Payment method (cash, bank transfer, etc.)
+   - Payment date
+   - Amount (pre-filled with invoice total)
+4. Click **Save**
+
+The invoice status will change to "Paid" and an accounting entry will be created automatically.
+
+<Info>
+  FacturaScripts automatically creates the accounting entry that debits your bank/cash account and credits the customer's receivables account.
+</Info>
+
+## Explore Key Features
+
+Now that you've created your first invoice, explore these features:
+
+<CardGroup cols={2}>
+  <Card title="Quotes & Orders" icon="file-invoice-dollar" href="/guides/creating-invoices">
+    Create quotes and convert them to invoices
+  </Card>
+  <Card title="Accounting Entries" icon="calculator" href="/guides/accounting-entries">
+    View and create accounting journal entries
+  </Card>
+  <Card title="Inventory Management" icon="boxes-stacked" href="/guides/stock-management">
+    Track stock levels and movements
+  </Card>
+  <Card title="Reports" icon="chart-line" href="/features/reports">
+    Generate sales and accounting reports
+  </Card>
+</CardGroup>
+
+## Common Next Steps
+
+<AccordionGroup>
+  <Accordion title="Set up payment methods">
+    Go to **Admin** → **Settings** → **Payment Methods** to configure:
+    
+    - Cash
+    - Bank transfer
+    - Credit card
+    - Direct debit
+    - Custom payment methods
+
+    Each payment method can have default due dates and accounting accounts.
+  </Accordion>
+
+  <Accordion title="Configure tax rates">
+    Go to **Admin** → **Settings** → **Taxes** to add or modify tax rates:
+
+    - Standard VAT rate
+    - Reduced VAT rates
+    - Exempt categories
+    - Special tax regimes
+
+    Tax rates are automatically applied when creating invoices based on product configuration.
+  </Accordion>
+
+  <Accordion title="Import existing data">
+    Import customers, products, or other data:
+
+    1. Go to the relevant list view (Customers, Products, etc.)
+    2. Click **Import**
+    3. Download the CSV template
+    4. Fill in your data
+    5. Upload and map columns
+    6. Review and confirm import
+
+    See [Managing Customers](/guides/managing-customers) for detailed import instructions.
+  </Accordion>
+
+  <Accordion title="Install plugins">
+    Extend FacturaScripts functionality:
+
+    1. Go to **Admin** → **Plugins**
+    2. Browse available plugins
+    3. Install plugins for:
+       - E-commerce integration
+       - Payment gateways
+       - Shipping providers
+       - Advanced reporting
+       - Custom features
+
+    See [Plugin Management](/admin/plugins) for more information.
+  </Accordion>
+</AccordionGroup>
+
+## Getting Help
+
+<CardGroup cols={3}>
+  <Card title="User Guides" icon="book" href="/guides/creating-invoices">
+    Step-by-step tutorials
+  </Card>
+  <Card title="FAQ" icon="question" href="/resources/faq">
+    Common questions answered
+  </Card>
+  <Card title="Community Support" icon="discord" href="/resources/support">
+    Discord & GitHub help
+  </Card>
+</CardGroup>
+
+## What's Next?
+
+<Steps>
+  <Step title="Learn Core Features">
+    Explore the main features:
+    - [Invoicing](/features/invoicing) - Sales documents workflow
+    - [Accounting](/features/accounting) - Financial management
+    - [Inventory](/features/inventory) - Stock control
+    - [CRM](/features/crm) - Customer relationships
+  </Step>
+
+  <Step title="Configure Your System">
+    Set up FacturaScripts for your business:
+    - [Company Settings](/admin/companies)
+    - [User Management](/admin/users)
+    - [System Configuration](/admin/configuration)
+  </Step>
+
+  <Step title="Customize & Extend">
+    Make FacturaScripts your own:
+    - [Install Plugins](/admin/plugins)
+    - [Developer Documentation](/dev/overview)
+    - [Create Custom Plugins](/dev/plugins/creating-plugins)
+  </Step>
+</Steps>
+
+<Note>
+  For production deployment with Apache or Nginx, proper SSL configuration, and performance optimization, see the complete [Installation Guide](/installation).
 </Note>
