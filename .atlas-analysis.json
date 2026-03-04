@@ -1,0 +1,148 @@
+{
+  "projectType": "saas",
+  "projectName": "FacturaScripts",
+  "projectDescription": "Open source ERP and accounting software for small and medium businesses",
+  "theme": "linden",
+  "primaryColor": "#246fcc",
+  "lightColor": "#7cb4e5",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart",
+              "system-requirements"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/invoicing",
+              "features/accounting",
+              "features/inventory",
+              "features/crm",
+              "features/reports"
+            ]
+          },
+          {
+            "group": "Administration",
+            "pages": [
+              "admin/users",
+              "admin/companies",
+              "admin/configuration",
+              "admin/plugins"
+            ]
+          },
+          {
+            "group": "User Guides",
+            "pages": [
+              "guides/creating-invoices",
+              "guides/managing-customers",
+              "guides/stock-management",
+              "guides/accounting-entries"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Development",
+        "groups": [
+          {
+            "group": "Getting Started",
+            "pages": [
+              "dev/overview",
+              "dev/architecture",
+              "dev/setup"
+            ]
+          },
+          {
+            "group": "Plugin Development",
+            "pages": [
+              "dev/plugins/creating-plugins",
+              "dev/plugins/plugin-structure",
+              "dev/plugins/controllers",
+              "dev/plugins/models",
+              "dev/plugins/views"
+            ]
+          },
+          {
+            "group": "API Reference",
+            "pages": [
+              "api/overview",
+              "api/authentication",
+              "api/endpoints",
+              "api/webhooks"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "dev/advanced/database",
+              "dev/advanced/translations",
+              "dev/advanced/extensions",
+              "dev/advanced/testing"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Resources",
+        "groups": [
+          {
+            "group": "Help",
+            "pages": [
+              "resources/faq",
+              "resources/troubleshooting",
+              "resources/support"
+            ]
+          },
+          {
+            "group": "Community",
+            "pages": [
+              "resources/contributing",
+              "resources/changelog",
+              "resources/roadmap"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Professional invoice and quote management",
+    "Complete accounting and finance module",
+    "Inventory and warehouse management",
+    "Customer and supplier CRM",
+    "Multi-company support",
+    "Extensible plugin architecture",
+    "Multi-language and multi-currency",
+    "Responsive web interface",
+    "Business reports and analytics",
+    "REST API for integrations"
+  ],
+  "publicApiSurface": [
+    "Core\\Base\\Controller",
+    "Core\\Base\\DataBase",
+    "Core\\Model\\Cliente",
+    "Core\\Model\\Proveedor",
+    "Core\\Model\\Producto",
+    "Core\\Model\\FacturaCliente",
+    "Core\\Model\\FacturaProveedor",
+    "Core\\Model\\AlbaranCliente",
+    "Core\\Model\\Asiento",
+    "Core\\Plugins",
+    "Core\\Tools",
+    "Core\\Translator",
+    "API /api/3/core/customer",
+    "API /api/3/core/supplier",
+    "API /api/3/core/product",
+    "API /api/3/core/invoice",
+    "API /api/3/plugins"
+  ]
+}
